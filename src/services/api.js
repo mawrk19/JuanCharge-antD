@@ -1,7 +1,10 @@
 import axios from "axios";
 
-// Fallback to your Railway URL if the .env variable isn't found
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://juancharge-backend-production.up.railway.app/api";
+// Support both variable names used in local and hosted environments.
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  "https://juancharge-backend-production.up.railway.app/api";
 
 const api = axios.create({
   baseURL: apiBaseUrl,

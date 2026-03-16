@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Table, Button, Input, Space, Card, Tag, message, Popconfirm } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getKiosks, createKiosk, updateKiosk, deleteKiosk } from './kiosk.api';
-import { getLgus } from '../LGU/lgu.api';
+import { getLgus } from '../Lgu/lgu.api';
 import KioskModal from './KioskModal';
 
 const KioskIndex = () => {

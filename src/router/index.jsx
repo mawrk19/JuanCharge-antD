@@ -11,7 +11,7 @@ import ResetPassword from '../pages/Auth/ResetPassword';
 import Dashboard from '../pages/Dashboard/Dashboard';
 import LguUserIndex from '../pages/LguUsers/LguUserIndex'; 
 import KioskIndex from '../pages/Kiosk/KioskIndex'
-import LguIndex from '../pages/LGU/LguIndex'
+import LguIndex from '../pages/Lgu/LguIndex'
 import RecyclingAnalytics from '../pages/RecyclingAnalytics/RecyclingAnalytics'
 import MapView from '../pages/Map/MapView'
 

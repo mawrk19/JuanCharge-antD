@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-light: #f0f9f0;
+  --color-primary-main: #22c55e;
+  --color-primary-dark: #15803d;
+  --color-sidebar-bg: #18392b;
+}
+
+:root {
+  font-family: 'Plus Jakarta Sans', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  display: block;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  color: #333;
+}
+
+/* Keep modal wrapper stable and scroll inside the body for all AntD modals. */
+.ant-modal .ant-modal-content {
+  overflow: hidden;
+}
+
+.ant-modal .ant-modal-body {
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+}

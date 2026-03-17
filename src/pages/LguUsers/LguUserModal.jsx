@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Form, Input, Modal, message } from 'antd';
+import { Form, Input, Modal, Select, message } from 'antd';
 
 const LguUserModal = ({
 	open,
@@ -14,7 +14,7 @@ const LguUserModal = ({
 	useEffect(() => {
 		if (!open) return;
 
-		const defaults = {};
+		const defaults = { role_slug: 'lgu_staff' };
 		const mappedValues = initialValues
 			? {
 					...defaults,
@@ -86,6 +86,37 @@ const LguUserModal = ({
 					]}
 				>
 					<Input size="large" placeholder="name@example.com" />
+				</Form.Item>
+
+				<Form.Item
+					name="role_slug"
+					label="Role"
+					rules={[{ required: true, message: 'Please select a role' }]}
+				>
+					<Select
+						size="large"
+						placeholder="Select role"
+						options={[
+							{
+								value: 'lgu_admin',
+								label: (
+									<div>
+										<span className="font-medium">LGU Admin</span>
+										<p className="text-xs text-gray-400 m-0">Can create staff and manage kiosks</p>
+									</div>
+								),
+							},
+							{
+								value: 'lgu_staff',
+								label: (
+									<div>
+										<span className="font-medium">LGU Staff</span>
+										<p className="text-xs text-gray-400 m-0">Can view analytics and manage kiosks</p>
+									</div>
+								),
+							},
+						]}
+					/>
 				</Form.Item>
 			</Form>
 		</Modal>

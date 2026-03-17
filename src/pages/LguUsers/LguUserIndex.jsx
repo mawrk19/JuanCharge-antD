@@ -81,7 +81,14 @@ const LguUserIndex = () => {
       await queryClient.invalidateQueries({ queryKey: ['lgu-users'] });
     } catch (err) {
       console.error(err);
-      message.error(selectedUser?.id ? 'Failed to update LGU user' : 'Failed to create LGU user');
+      const apiErrors = err.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+        // Show each validation message (e.g. "email: The email has already been taken.")
+        Object.values(apiErrors).flat().forEach((msg) => message.error(msg));
+      } else {
+        const fallback = err.response?.data?.message;
+        message.error(fallback || (selectedUser?.id ? 'Failed to update LGU user' : 'Failed to create LGU user'));
+      }
       throw err;
     }
   };

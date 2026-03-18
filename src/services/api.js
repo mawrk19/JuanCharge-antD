@@ -1,11 +1,10 @@
 import axios from "axios";
+import { clearAuthSession } from "./authStorage";
 
 // Support both variable names used in local and hosted environments.
 const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_API_URL ||
-  "https://juancharge-backend-production.up.railway.app/api";
-
+  import.meta.env.VITE_API_URL
+  
 const api = axios.create({
   baseURL: apiBaseUrl,
   headers: {
@@ -36,7 +35,7 @@ api.interceptors.response.use(
       const currentPath = window.location.pathname;
       // Don't redirect if we are already trying to log in
       if (!['/login', '/register'].includes(currentPath)) {
-        localStorage.clear(); // Simpler way to wipe everything
+        clearAuthSession();
         window.location.href = "/login";
       }
     }

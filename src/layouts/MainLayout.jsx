@@ -15,6 +15,15 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import Swal from 'sweetalert2';
+import api from '../services/api';
+import {
+  clearAuthSession,
+  getStoredRole,
+  isKioskRole,
+  isManagementRole,
+  isSuperAdminRole,
+} from '../services/authStorage';
 
 const { Header, Sider, Content } = Layout;
 
@@ -75,50 +84,58 @@ const MainLayout = () => {
     newPassword: '',
     confirmPassword: '',
   });
+  const [verificationSettings, setVerificationSettings] = useState(() => ({
+    newEmail: '',
+    emailCurrentPassword: '',
+    phoneNumber: cachedUser?.phone_number || cachedUser?.phone || '',
+    phoneOtp: '',
+  }));
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [emailVerificationLoading, setEmailVerificationLoading] = useState(false);
+  const [sendPhoneOtpLoading, setSendPhoneOtpLoading] = useState(false);
+  const [verifyPhoneOtpLoading, setVerifyPhoneOtpLoading] = useState(false);
 
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
-  // Stubbing Auth values
-  const userType = localStorage.getItem('user_type') || 'admin';
+  const userType = getStoredRole() || 'super_admin';
   const userName = cachedUser?.name || [cachedUser?.first_name, cachedUser?.last_name].filter(Boolean).join(' ') || 'Admin User';
   const userEmail = cachedUser?.email || '';
-  const isAdmin = userType === 'admin';
-  const isLguUser = userType === 'lgu' || userType === 'lgu_user';
+  const isAdmin = isSuperAdminRole(userType);
+  const isLguUser = isManagementRole(userType) && !isAdmin;
+  const isKioskUser = isKioskRole(userType);
 
   const getRoleLabel = () => {
     if (isAdmin) return "Administrator";
-    if (isLguUser) return "LGU User";
-    if (userType === 'patron') return "Patron";
+    if (userType === 'lgu_admin') return "LGU Admin";
+    if (userType === 'lgu_staff') return "LGU Staff";
+    if (isKioskUser) return "Kiosk User";
     return "User";
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('user_type');
+    clearAuthSession();
     window.location.href = '/login';
   };
 
   // Build menu items based on roles matching Vue Logic
   const getMenuItems = () => {
-    const items = [];
-
-    if (userType && !isLguUser) {
-      items.push({ key: '/main/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' });
+    if (isKioskUser) {
+      return [{ key: '/patron', icon: <DashboardOutlined />, label: 'Patron Dashboard' }];
     }
 
-    items.push(
+    const items = [
+      { key: '/main/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
       { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
       { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
       { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
       { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
-      { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' }
-    );
+    ];
 
     if (isAdmin) {
       items.push(
+        { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' },
         { key: '/main/kiosks-users', icon: <UserOutlined />, label: 'Patrons' }
       );
     }
@@ -192,38 +209,223 @@ const MainLayout = () => {
     setAppSettings((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSaveSettings = () => {
-    if (passwordSettings.currentPassword || passwordSettings.newPassword || passwordSettings.confirmPassword) {
-      if (!passwordSettings.currentPassword || !passwordSettings.newPassword || !passwordSettings.confirmPassword) {
-        message.error('Please complete all password fields.');
-        return;
-      }
+  const getErrorMessages = (error, fallbackMessage) => {
+    const lines = [];
+    const responseData = error?.response?.data;
 
-      if (passwordSettings.newPassword.length < 8) {
-        message.error('New password must be at least 8 characters.');
-        return;
-      }
-
-      if (passwordSettings.newPassword !== passwordSettings.confirmPassword) {
-        message.error('New password and confirm password do not match.');
-        return;
-      }
+    if (responseData?.message) {
+      lines.push(responseData.message);
     }
 
-    const updatedUser = {
+    if (responseData?.errors && typeof responseData.errors === 'object') {
+      Object.values(responseData.errors).forEach((entry) => {
+        if (Array.isArray(entry)) {
+          entry.forEach((item) => item && lines.push(String(item)));
+          return;
+        }
+
+        if (entry) {
+          lines.push(String(entry));
+        }
+      });
+    }
+
+    const uniqueLines = [...new Set(lines.filter(Boolean))];
+    return uniqueLines.length > 0 ? uniqueLines : [fallbackMessage];
+  };
+
+  const showErrorAlert = async (error, fallbackMessage) => {
+    const messages = getErrorMessages(error, fallbackMessage);
+    await Swal.fire({
+      icon: 'error',
+      title: 'Request Failed',
+      html: `<div style="text-align:left"><ul style="padding-left:20px;margin:0">${messages
+        .map((line) => `<li>${line}</li>`)
+        .join('')}</ul></div>`,
+    });
+  };
+
+  const showValidationAlert = async (text) => {
+    await Swal.fire({
+      icon: 'error',
+      title: 'Validation Error',
+      text,
+    });
+  };
+
+  const mergeUserToCache = (userFromApi) => {
+    if (!userFromApi || typeof userFromApi !== 'object') {
+      return;
+    }
+
+    const mergedUser = {
       ...(cachedUser || {}),
-      first_name: profileSettings.firstName,
-      last_name: profileSettings.lastName,
-      email: profileSettings.email,
-      phone_number: profileSettings.phone,
-      name: [profileSettings.firstName, profileSettings.lastName].filter(Boolean).join(' ').trim(),
+      ...userFromApi,
     };
 
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    localStorage.setItem('app_settings', JSON.stringify(appSettings));
-    setPasswordSettings({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    setSettingsVisible(false);
-    message.success('Settings saved successfully.');
+    localStorage.setItem('user', JSON.stringify(mergedUser));
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsSaving(true);
+
+    try {
+      if (activeSettingsSection === 'account') {
+        const firstName = profileSettings.firstName.trim();
+        const lastName = profileSettings.lastName.trim();
+
+        if (!firstName || !lastName) {
+          await showValidationAlert('First name and last name are required.');
+          return;
+        }
+
+        const fullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+        const response = await api.put('/auth/profile', {
+          first_name: firstName,
+          last_name: lastName,
+          name: fullName,
+        });
+
+        const apiUser = response?.data?.data || response?.data?.user;
+        mergeUserToCache(apiUser || {
+          first_name: firstName,
+          last_name: lastName,
+          name: fullName,
+        });
+
+        localStorage.setItem('app_settings', JSON.stringify(appSettings));
+        setSettingsVisible(false);
+        message.success('Profile updated successfully.');
+        return;
+      }
+
+      if (activeSettingsSection === 'security') {
+        if (!passwordSettings.currentPassword || !passwordSettings.newPassword || !passwordSettings.confirmPassword) {
+          await showValidationAlert('Please complete all password fields.');
+          return;
+        }
+
+        if (passwordSettings.newPassword.length < 8) {
+          await showValidationAlert('New password must be at least 8 characters.');
+          return;
+        }
+
+        if (passwordSettings.newPassword !== passwordSettings.confirmPassword) {
+          await showValidationAlert('New password and confirm password do not match.');
+          return;
+        }
+
+        await api.post('/auth/change-password', {
+          current_password: passwordSettings.currentPassword,
+          new_password: passwordSettings.newPassword,
+          new_password_confirmation: passwordSettings.confirmPassword,
+        });
+
+        setPasswordSettings({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        setSettingsVisible(false);
+        message.success('Password changed successfully. Please log in again.');
+        handleLogout();
+        return;
+      }
+
+      localStorage.setItem('app_settings', JSON.stringify(appSettings));
+      setSettingsVisible(false);
+      message.success('Settings saved successfully.');
+    } catch (error) {
+      await showErrorAlert(error, 'Failed to save settings.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleEmailChangeRequest = async () => {
+    if (!verificationSettings.newEmail.trim()) {
+      await showValidationAlert('Please enter your new email address.');
+      return;
+    }
+
+    if (!verificationSettings.emailCurrentPassword) {
+      await showValidationAlert('Please enter your current password to change email.');
+      return;
+    }
+
+    setEmailVerificationLoading(true);
+
+    try {
+      await api.post('/auth/email/change-request', {
+        new_email: verificationSettings.newEmail.trim(),
+        current_password: verificationSettings.emailCurrentPassword,
+      });
+
+      setVerificationSettings((prev) => ({
+        ...prev,
+        emailCurrentPassword: '',
+      }));
+
+      message.success('Verification link sent to your new email address.');
+    } catch (error) {
+      await showErrorAlert(error, 'Failed to request email change.');
+    } finally {
+      setEmailVerificationLoading(false);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    if (!verificationSettings.phoneNumber.trim()) {
+      await showValidationAlert('Please enter a phone number.');
+      return;
+    }
+
+    setSendPhoneOtpLoading(true);
+
+    try {
+      await api.post('/auth/phone/verification/send-otp', {
+        phone_number: verificationSettings.phoneNumber.trim(),
+      });
+
+      message.success('OTP sent successfully.');
+    } catch (error) {
+      await showErrorAlert(error, 'Failed to send OTP.');
+    } finally {
+      setSendPhoneOtpLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (!verificationSettings.phoneNumber.trim() || !verificationSettings.phoneOtp.trim()) {
+      await showValidationAlert('Please provide phone number and OTP code.');
+      return;
+    }
+
+    setVerifyPhoneOtpLoading(true);
+
+    try {
+      const response = await api.post('/auth/phone/verification/verify-otp', {
+        phone_number: verificationSettings.phoneNumber.trim(),
+        otp: verificationSettings.phoneOtp.trim(),
+      });
+
+      const apiUser = response?.data?.data || response?.data?.user;
+      mergeUserToCache(apiUser || {
+        phone_number: verificationSettings.phoneNumber.trim(),
+      });
+
+      setProfileSettings((prev) => ({
+        ...prev,
+        phone: verificationSettings.phoneNumber.trim(),
+      }));
+
+      setVerificationSettings((prev) => ({
+        ...prev,
+        phoneOtp: '',
+      }));
+
+      message.success('Phone number verified successfully.');
+    } catch (error) {
+      await showErrorAlert(error, 'Failed to verify OTP.');
+    } finally {
+      setVerifyPhoneOtpLoading(false);
+    }
   };
 
   const renderSettingsPanel = () => {
@@ -256,21 +458,43 @@ const MainLayout = () => {
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <div className="mb-2 text-sm font-medium text-slate-700">Email Address</div>
+              <div className="mb-2 text-sm font-medium text-slate-700">Current Email Address</div>
               <Input
                 placeholder="name@example.com"
                 value={profileSettings.email}
-                onChange={(e) => setProfileSettings((prev) => ({ ...prev, email: e.target.value }))}
+                disabled
               />
             </div>
             <div>
-              <div className="mb-2 text-sm font-medium text-slate-700">Phone Number</div>
+              <div className="mb-2 text-sm font-medium text-slate-700">Current Phone Number</div>
               <Input
                 placeholder="Enter phone number"
                 value={profileSettings.phone}
-                onChange={(e) => setProfileSettings((prev) => ({ ...prev, phone: e.target.value }))}
+                disabled
               />
             </div>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+            <div>
+              <div className="font-medium text-slate-800">Change Email (Verification Link)</div>
+              <div className="text-sm text-slate-500">We will send a verification link to your new email address.</div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <Input
+                placeholder="New email address"
+                value={verificationSettings.newEmail}
+                onChange={(e) => setVerificationSettings((prev) => ({ ...prev, newEmail: e.target.value }))}
+              />
+              <Input.Password
+                placeholder="Current password"
+                value={verificationSettings.emailCurrentPassword}
+                onChange={(e) => setVerificationSettings((prev) => ({ ...prev, emailCurrentPassword: e.target.value }))}
+              />
+            </div>
+            <Button type="primary" onClick={handleEmailChangeRequest} loading={emailVerificationLoading}>
+              Send Verification Link
+            </Button>
           </div>
         </div>
       );
@@ -515,6 +739,7 @@ const MainLayout = () => {
           open={settingsVisible}
           onCancel={() => setSettingsVisible(false)}
           onOk={handleSaveSettings}
+          confirmLoading={settingsSaving}
           width={920}
           okText="Save Changes"
           styles={{ body: { padding: 0, minHeight: 460 } }}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { hasAnyRole, isAuthenticated } from '../services/authStorage';
 
 // Layouts
 import MainLayout from '../layouts/MainLayout';
@@ -13,8 +14,23 @@ import Dashboard from '../pages/Dashboard/Dashboard';
 import LguUserIndex from '../pages/LguUsers/LguUserIndex'; 
 import KioskIndex from '../pages/Kiosk/KioskIndex'
 import LguIndex from '../pages/Lgu/LguIndex'
+import PatronIndex from '../pages/Petron/PatronIndex'
 import RecyclingAnalytics from '../pages/RecyclingAnalytics/RecyclingAnalytics'
 import MapView from '../pages/Map/MapView'
+
+const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
+
+const ProtectedRoute = ({ children, allowedRoles }) => {
+  if (!isAuthenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !hasAnyRole(allowedRoles)) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
 
 // We define the routes as a constant array for better readability
 const routes = [
@@ -40,7 +56,11 @@ const routes = [
   },
   {
     path: '/main',
-    element: <MainLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={MANAGEMENT_ROLES}>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       {
         path: 'dashboard',
@@ -54,13 +74,17 @@ const routes = [
       { path: 'map', element: <MapView /> },
       { path: 'kiosks', element: <KioskIndex /> },
       { path: 'lgus', element: <LguIndex /> },
-      { path: 'kiosks-users', element: <div className="p-4">Patrons</div> },
+      { path: 'kiosks-users', element: <PatronIndex /> },
       { path: 'settings', element: <div className="p-4">Settings</div> },
     ],
   },
   {
     path: '/patron',
-    element: <MainLayout />,
+    element: (
+      <ProtectedRoute allowedRoles={['kiosk_user']}>
+        <MainLayout />
+      </ProtectedRoute>
+    ),
     children: [
       { index: true, element: <div className="p-4">Patron Dashboard</div> },
     ],

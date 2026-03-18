@@ -10,6 +10,7 @@ import Login from '../pages/Auth/Login';
 import ForgotPassword from '../pages/Auth/ForgotPassword';
 import ResetPassword from '../pages/Auth/ResetPassword';
 import SetupPassword from '../pages/Auth/SetupPassword';
+import EmailVerificationResult from '../pages/Auth/EmailVerificationResult';
 import Dashboard from '../pages/Dashboard/Dashboard';
 import LguUserIndex from '../pages/LguUsers/LguUserIndex'; 
 import KioskIndex from '../pages/Kiosk/KioskIndex'
@@ -53,6 +54,10 @@ const routes = [
   {
     path: '/setup-password',
     element: <SetupPassword />,
+  },
+  {
+    path: '/email-verification',
+    element: <EmailVerificationResult />,
   },
   {
     path: '/main',

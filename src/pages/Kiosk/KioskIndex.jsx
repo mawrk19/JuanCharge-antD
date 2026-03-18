@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Table, Button, Input, Space, Card, Tag, message, Popconfirm } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getKiosks, createKiosk, updateKiosk, deleteKiosk } from './kiosk.api';
-import { getLgus } from '../Lgu/lgu.api';
+import { getCollectionSchedules, getLgus } from '../Lgu/lgu.api';
 import KioskModal from './KioskModal';
+import { getStoredRole, USER_KEY } from '../../services/authStorage';
 
 const KioskIndex = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedKiosk, setSelectedKiosk] = useState(null);
   const queryClient = useQueryClient();
+  const currentRole = getStoredRole();
+  const isLguAdmin = currentRole === 'lgu_admin';
+
+  const currentUser = useMemo(() => {
+    try {
+      const rawUser = localStorage.getItem(USER_KEY);
+      return rawUser ? JSON.parse(rawUser) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const currentUserLguId = useMemo(() => {
+    if (isLguAdmin && currentUser?.lgu_id) {
+      return currentUser.lgu_id;
+    }
+    return null;
+  }, [currentUser, isLguAdmin]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['kiosks'],
@@ -23,6 +42,24 @@ const KioskIndex = () => {
     select: (res) => {
       const rows = Array.isArray(res.data) ? res.data : res.data?.data || [];
       return rows.map((lgu) => ({ id: lgu.id, name: lgu.name }));
+    },
+  });
+
+  const currentUserLguName = useMemo(() => {
+    if (!currentUserLguId) return null;
+    return lguOptions.find((lgu) => lgu.id === currentUserLguId)?.name;
+  }, [currentUserLguId, lguOptions]);
+
+  const { data: scheduleOptions = [] } = useQuery({
+    queryKey: ['collection-schedules-options'],
+    queryFn: getCollectionSchedules,
+    select: (res) => {
+      const rows = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      return rows.map((schedule) => ({
+        id: schedule.id,
+        name: schedule.name || schedule.schedule_name || `Schedule #${schedule.id}`,
+        lgu_id: schedule.lgu_id,
+      }));
     },
   });
 
@@ -68,11 +105,16 @@ const KioskIndex = () => {
 
   const handleModalSubmit = async (values) => {
     try {
+      const payload = {
+        ...values,
+        ...(isLguAdmin && currentUserLguId ? { lgu_id: currentUserLguId } : {}),
+      };
+
       if (selectedKiosk?.id) {
-        await updateKioskMutation.mutateAsync({ id: selectedKiosk.id, payload: values });
+        await updateKioskMutation.mutateAsync({ id: selectedKiosk.id, payload });
         message.success('Kiosk updated successfully');
       } else {
-        await createKioskMutation.mutateAsync(values);
+        await createKioskMutation.mutateAsync(payload);
         message.success('Kiosk added successfully');
       }
 
@@ -103,6 +145,18 @@ const KioskIndex = () => {
       title: 'LOCATION', 
       dataIndex: 'location', 
       key: 'location' 
+    },
+    {
+      title: 'SCHEDULE',
+      key: 'schedule',
+      render: (_, record) => {
+        const scheduleName =
+          record.collection_schedule?.name ||
+          record.collection_schedule_name ||
+          scheduleOptions.find((s) => s.id === record.collection_schedule_id)?.name;
+
+        return scheduleName || <span className="text-gray-400">-</span>;
+      },
     },
     {
       title: 'STATUS',
@@ -184,8 +238,12 @@ const KioskIndex = () => {
         onSubmit={handleModalSubmit}
         loading={submitLoading}
         lguOptions={lguOptions}
+        scheduleOptions={scheduleOptions}
         mode={selectedKiosk ? 'edit' : 'create'}
         initialValues={selectedKiosk}
+        currentUserRole={currentRole}
+        currentUserLguId={currentUserLguId}
+        currentUserLguName={currentUserLguName}
       />
     </div>
   );

@@ -4,11 +4,55 @@ import { Table, Button, Input, Space, Card, Tag, Popconfirm, message } from 'ant
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getLguUsers, createLguUser, updateLguUser, deleteLguUser } from './lguUser.api';
 import LguUserModal from './LguUserModal';
+import { getStoredRole, USER_KEY } from '../../services/authStorage';
 
 const LguUserIndex = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const currentRole = getStoredRole();
+  const isLguAdmin = currentRole === 'lgu_admin';
+  const isSuperAdmin = currentRole === 'super_admin';
+
+  const currentUser = useMemo(() => {
+    try {
+      const rawUser = localStorage.getItem(USER_KEY);
+      return rawUser ? JSON.parse(rawUser) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const { data: lguList = [] } = useQuery({
+    queryKey: ['lgus-for-modal'],
+    queryFn: async () => {
+      const res = await getLguUsers();
+      return res.data?.data || res.data || [];
+    },
+    select: (data) => {
+      const allUsers = Array.isArray(data) ? data : data?.data || [];
+      const map = new Map();
+      allUsers.forEach((user) => {
+        if (user?.lgu?.id && user?.lgu?.name) {
+          map.set(user.lgu.id, user.lgu);
+        }
+      });
+      return Array.from(map.values());
+    },
+  });
+
+  const currentUserLguId = useMemo(() => {
+    if (isLguAdmin && currentUser?.lgu_id) {
+      return currentUser.lgu_id;
+    }
+    return null;
+  }, [currentUser, isLguAdmin]);
+
+  const currentUserLguName = useMemo(() => {
+    if (!currentUserLguId) return null;
+    return lguList.find((lgu) => lgu.id === currentUserLguId)?.name;
+  }, [currentUserLguId, lguList]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['lgu-users'],
@@ -29,16 +73,6 @@ const LguUserIndex = () => {
   });
 
   const submitLoading = createUserMutation.isPending || updateUserMutation.isPending;
-
-  const lguOptions = useMemo(() => {
-    const map = new Map();
-    data.forEach((user) => {
-      if (user?.lgu?.id && user?.lgu?.name) {
-        map.set(user.lgu.id, user.lgu.name);
-      }
-    });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [data]);
 
   const handleAdd = () => {
     setSelectedUser(null);
@@ -68,11 +102,16 @@ const LguUserIndex = () => {
 
   const handleModalSubmit = async (values) => {
     try {
+      const payload = {
+        ...values,
+        ...(isLguAdmin && currentUserLgu?.id ? { lgu_id: currentUserLgu.id } : {}),
+      };
+
       if (selectedUser?.id) {
-        await updateUserMutation.mutateAsync({ id: selectedUser.id, payload: values });
+        await updateUserMutation.mutateAsync({ id: selectedUser.id, payload });
         message.success('LGU user updated successfully');
       } else {
-        await createUserMutation.mutateAsync(values);
+        await createUserMutation.mutateAsync(payload);
         message.success('LGU user created successfully');
       }
 
@@ -186,9 +225,12 @@ const LguUserIndex = () => {
         onCancel={handleCancel}
         onSubmit={handleModalSubmit}
         loading={submitLoading}
-        lguOptions={lguOptions}
         mode={selectedUser ? 'edit' : 'create'}
         initialValues={selectedUser}
+        currentUserRole={currentRole}
+        currentUserLguId={currentUserLguId}
+        currentUserLguName={currentUserLguName}
+        isSuperAdmin={isSuperAdmin}
       />
     </div>
   );

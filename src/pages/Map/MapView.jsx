@@ -201,7 +201,7 @@ const MapView = () => {
                   key={kiosk.id}
                   hoverable
                   className={`rounded-2xl border transition-all ${isSelected ? 'border-green-300 shadow-md bg-green-50/30' : 'border-slate-200 shadow-sm bg-white'}`}
-                  bodyStyle={{ padding: 16 }}
+                  styles={{ body: { padding: 16 } }}
                   onClick={() => setSelectedKioskId(kiosk.id)}
                 >
                   <div className="flex justify-between items-start gap-3">
@@ -250,7 +250,7 @@ const MapView = () => {
             })}
 
             {!isLoading && filteredKiosks.length === 0 && (
-              <Card className="rounded-xl border border-slate-200" bodyStyle={{ padding: 18 }}>
+              <Card className="rounded-xl border border-slate-200" styles={{ body: { padding: 18 } }}>
                 <div className="text-slate-500 text-sm">No stations matched your filters.</div>
               </Card>
             )}

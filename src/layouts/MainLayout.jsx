@@ -20,7 +20,6 @@ import api from '../services/api';
 import {
   clearAuthSession,
   getStoredRole,
-  isKioskRole,
   isManagementRole,
   isSuperAdminRole,
 } from '../services/authStorage';
@@ -103,14 +102,14 @@ const MainLayout = () => {
   const userName = cachedUser?.name || [cachedUser?.first_name, cachedUser?.last_name].filter(Boolean).join(' ') || 'Admin User';
   const userEmail = cachedUser?.email || '';
   const isAdmin = isSuperAdminRole(userType);
-  const isLguUser = isManagementRole(userType) && !isAdmin;
-  const isKioskUser = isKioskRole(userType);
+  const isLguAdmin = userType === 'lgu_admin';
+  const isLguStaff = userType === 'lgu_staff';
 
   const getRoleLabel = () => {
     if (isAdmin) return "Administrator";
     if (userType === 'lgu_admin') return "LGU Admin";
     if (userType === 'lgu_staff') return "LGU Staff";
-    if (isKioskUser) return "Kiosk User";
+    if (userType === 'kiosk_user') return "Kiosk User";
     return "User";
   };
 
@@ -121,8 +120,24 @@ const MainLayout = () => {
 
   // Build menu items based on roles matching Vue Logic
   const getMenuItems = () => {
-    if (isKioskUser) {
-      return [{ key: '/patron', icon: <DashboardOutlined />, label: 'Patron Dashboard' }];
+    if (!isManagementRole(userType)) {
+      return [];
+    }
+
+    if (isLguStaff) {
+      return [
+        { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
+        { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
+      ];
+    }
+
+    if (isLguAdmin) {
+      return [
+        { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
+        { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
+        { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
+        { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
+      ];
     }
 
     const items = [
@@ -130,15 +145,10 @@ const MainLayout = () => {
       { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
       { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
       { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
+      { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' },
       { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
+      { key: '/main/kiosks-users', icon: <UserOutlined />, label: 'Patrons' },
     ];
-
-    if (isAdmin) {
-      items.push(
-        { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' },
-        { key: '/main/kiosks-users', icon: <UserOutlined />, label: 'Patrons' }
-      );
-    }
 
     return items;
   };
@@ -174,8 +184,14 @@ const MainLayout = () => {
     },
   ];
 
-  const onUserMenuClick = ({ key }) => {
+  const onUserMenuClick = async ({ key }) => {
     if (key === 'settings') {
+      try {
+        await refreshCurrentUserFromApi();
+      } catch (error) {
+        // Keep settings accessible even if refresh fails.
+        await showErrorAlert(error, 'Could not refresh your latest account details.');
+      }
       setSettingsVisible(true);
       return;
     }
@@ -264,6 +280,53 @@ const MainLayout = () => {
     };
 
     localStorage.setItem('user', JSON.stringify(mergedUser));
+
+    setProfileSettings((prev) => ({
+      ...prev,
+      firstName: mergedUser.first_name || prev.firstName,
+      lastName: mergedUser.last_name || prev.lastName,
+      email: mergedUser.email || prev.email,
+      phone: mergedUser.phone_number || mergedUser.phone || prev.phone,
+    }));
+
+    setVerificationSettings((prev) => ({
+      ...prev,
+      phoneNumber: mergedUser.phone_number || mergedUser.phone || prev.phoneNumber,
+    }));
+  };
+
+  const refreshCurrentUserFromApi = async () => {
+    const candidateEndpoints = ['/auth/validate', '/auth/validpate', '/auth/profile'];
+    let lastError = null;
+
+    for (const endpoint of candidateEndpoints) {
+      try {
+        const response = await api.get(endpoint);
+        const payload = response?.data;
+        const userFromApi = payload?.data?.user || payload?.user || payload?.data;
+
+        if (userFromApi && typeof userFromApi === 'object') {
+          mergeUserToCache(userFromApi);
+          return userFromApi;
+        }
+      } catch (error) {
+        lastError = error;
+        const status = error?.response?.status;
+
+        // Try fallback endpoints for route mismatch across environments.
+        if (status === 404 || status === 405) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+
+    return null;
   };
 
   const handleSaveSettings = async () => {

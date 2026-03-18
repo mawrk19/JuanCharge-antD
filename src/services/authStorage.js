@@ -122,10 +122,14 @@ const getDefaultRouteForRole = (roleLike) => {
   const role = normalizeRole(roleLike);
 
   if (role === 'kiosk_user') {
-    return '/patron';
+    return '/login';
   }
 
-  if (role === 'lgu_admin' || role === 'lgu_staff') {
+  if (role === 'lgu_staff') {
+    return '/main/recycling-analytics';
+  }
+
+  if (role === 'lgu_admin') {
     return '/main/users';
   }
 

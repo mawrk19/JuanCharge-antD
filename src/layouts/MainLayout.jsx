@@ -803,12 +803,12 @@ const MainLayout = () => {
           onCancel={() => setSettingsVisible(false)}
           onOk={handleSaveSettings}
           confirmLoading={settingsSaving}
-          width={920}
+          width="min(920px, calc(100vw - 24px))"
           okText="Save Changes"
           styles={{ body: { padding: 0, minHeight: 460 } }}
         >
-          <div className="flex h-full min-h-[460px]">
-            <div className="w-[250px] border-r border-slate-200 bg-slate-50/70 p-3">
+          <div className="flex h-full min-h-[460px] flex-col md:flex-row">
+            <div className="w-full md:w-[250px] border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50/70 p-3">
               <div className="px-2 pb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Preferences</div>
               <Menu
                 mode="inline"
@@ -818,7 +818,7 @@ const MainLayout = () => {
                 style={{ background: 'transparent', borderInlineEnd: 0 }}
               />
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {renderSettingsPanel()}
             </div>
           </div>
@@ -826,7 +826,7 @@ const MainLayout = () => {
 
         {/* Header (Standard Dark Blue like standard enterprise apps, or clean white) */}
             <Header 
-              className="px-4 flex items-center justify-between shadow-sm z-10 sticky top-0" 
+              className="px-3 sm:px-4 flex items-center justify-between shadow-sm z-10 sticky top-0" 
               style={{ 
                 padding: 0, 
                 background: colorBgContainer, // This uses the white from your theme tokens
@@ -840,7 +840,7 @@ const MainLayout = () => {
                 // Swaps the "Fold" and "Unfold" icons visually
                 icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
                 onClick={() => setCollapsed(!collapsed)}
-                className="hover:bg-slate-100 w-16 h-16 rounded-none text-lg"
+                className="hover:bg-slate-100 w-14 h-14 md:w-16 md:h-16 rounded-none text-lg"
                 style={{ color: '#1e293b' }}
               />
             </div>
@@ -850,13 +850,13 @@ const MainLayout = () => {
                 type="text"
                 icon={<MenuUnfoldOutlined />}
                 onClick={() => setMobileDrawerVisible(true)}
-                className="hover:bg-slate-100 w-16 h-16 rounded-none text-lg"
+                className="hover:bg-slate-100 w-14 h-14 rounded-none text-lg"
                 style={{ color: '#1e293b' }}
               />
             </div>
           </div>
 
-          <div className="flex items-center gap-4 pr-6">
+          <div className="flex items-center gap-2 sm:gap-4 pr-3 sm:pr-6">
             <Dropdown popupRender={() => notifMenu} trigger={['click']} placement="bottomRight">
               <Badge count={notifications.filter(n => !n.read).length} size="small" offset={[-4, 4]}>
                 <span className="text-slate-600 hover:text-slate-900 cursor-pointer text-xl p-2 rounded-full hover:bg-slate-100 transition-colors">
@@ -883,9 +883,8 @@ const MainLayout = () => {
 
         {/* Dynamic Page Content */}
         <Content
+          className="m-3 p-3 sm:m-4 sm:p-4 lg:m-6 lg:p-6"
           style={{
-            margin: '24px 16px',
-            padding: 24,
             minHeight: 280,
             background: colorBgContainer,
             borderRadius: borderRadiusLG,

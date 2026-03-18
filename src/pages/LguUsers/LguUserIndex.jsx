@@ -104,7 +104,7 @@ const LguUserIndex = () => {
     try {
       const payload = {
         ...values,
-        ...(isLguAdmin && currentUserLgu?.id ? { lgu_id: currentUserLgu.id } : {}),
+        ...(isLguAdmin && currentUserLguId ? { lgu_id: currentUserLguId } : {}),
       };
 
       if (selectedUser?.id) {
@@ -194,14 +194,14 @@ const LguUserIndex = () => {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">LGU User Management</h1>
           <p className="text-gray-500">Manage LGU users, roles, and permissions</p>
         </div>
-        <div className="flex gap-2">
-          <Input prefix={<SearchOutlined />} placeholder="Search users..." className="w-64" />
+        <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
+          <Input prefix={<SearchOutlined />} placeholder="Search users..." className="w-full sm:w-64" />
           <Button type="primary" icon={<PlusOutlined />} className="bg-green-600" onClick={handleAdd}>Add User</Button>
         </div>
       </div>
@@ -217,6 +217,7 @@ const LguUserIndex = () => {
             showSizeChanger: true,
             pageSizeOptions: ['5', '10', '20', '50', '100'],
           }}
+          scroll={{ x: 960 }}
         />
       </Card>
 

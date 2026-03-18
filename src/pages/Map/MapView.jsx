@@ -117,9 +117,9 @@ const MapView = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-170px)] min-h-[620px] rounded-xl overflow-hidden border border-slate-200 bg-white">
+    <div className="rounded-xl overflow-hidden border border-slate-200 bg-white min-h-[620px] lg:h-[calc(100vh-170px)]">
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_390px] h-full">
-        <div className="relative h-full">
+        <div className="relative h-[440px] sm:h-[520px] xl:h-full">
           <div className="absolute top-4 left-4 right-4 z-[900] flex flex-wrap gap-3">
             <Input
               prefix={<SearchOutlined className="text-slate-400" />}
@@ -132,7 +132,7 @@ const MapView = () => {
             <Select
               value={statusFilter}
               onChange={setStatusFilter}
-              className="w-[180px]"
+              className="w-full sm:w-[180px]"
               options={[
                 { value: 'all', label: 'All Status' },
                 { value: 'active', label: 'Active' },
@@ -142,7 +142,7 @@ const MapView = () => {
             <Select
               value={connectorFilter}
               onChange={setConnectorFilter}
-              className="w-[180px]"
+              className="w-full sm:w-[180px]"
               options={connectorOptions}
             />
           </div>
@@ -183,13 +183,13 @@ const MapView = () => {
           </MapContainer>
         </div>
 
-        <aside className="h-full border-l border-slate-200 bg-slate-50/40 overflow-hidden">
+        <aside className="h-full border-t xl:border-t-0 xl:border-l border-slate-200 bg-slate-50/40 overflow-hidden">
           <div className="p-5 border-b border-slate-200 bg-white">
-            <h2 className="text-3xl font-semibold text-slate-800 leading-tight">Charging Stations</h2>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-slate-800 leading-tight">Charging Stations</h2>
             <p className="text-slate-500 mt-1">{filteredKiosks.length} stations found</p>
           </div>
 
-          <div className="h-[calc(100%-96px)] overflow-y-auto p-4 space-y-5">
+          <div className="h-[calc(100%-96px)] max-h-[420px] xl:max-h-none overflow-y-auto p-4 space-y-5">
             {filteredKiosks.map((kiosk) => {
               const isSelected = selectedKiosk?.id === kiosk.id;
               const totalPorts = Number(kiosk.total_ports || 1);
@@ -210,7 +210,7 @@ const MapView = () => {
                         <ThunderboltOutlined />
                       </div>
                       <div>
-                        <div className="text-[28px] leading-7 font-semibold text-slate-900">{kiosk.kiosk_code || 'Kiosk'}</div>
+                        <div className="text-xl sm:text-2xl leading-7 font-semibold text-slate-900">{kiosk.kiosk_code || 'Kiosk'}</div>
                         <div className="text-slate-500 text-sm mt-1">{kiosk.parsedLocation.lat.toFixed(6)}, {kiosk.parsedLocation.lng.toFixed(6)}</div>
                       </div>
                     </div>

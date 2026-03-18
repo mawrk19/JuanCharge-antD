@@ -140,7 +140,7 @@ const Dashboard = () => {
 
   const statCardProps = {
     className: "rounded-xl border border-slate-100 shadow-sm",
-    bodyStyle: { padding: '20px 24px' }
+    styles: { body: { padding: '20px 24px' } }
   };
 
   return (
@@ -230,7 +230,7 @@ const Dashboard = () => {
         <Col xs={24} lg={8} className="flex">
           <Card
             className="rounded-xl border border-slate-100 shadow-sm h-full w-full"
-            bodyStyle={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}
+            styles={{ body: { padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' } }}
           >
             <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-4 h-full flex flex-col">
               <div className="flex justify-between items-center mb-4">
@@ -260,7 +260,7 @@ const Dashboard = () => {
         <Col xs={24} lg={8} className="flex">
           <Card
             className="rounded-xl border border-slate-100 shadow-sm h-full w-full"
-            bodyStyle={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}
+            styles={{ body: { padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' } }}
           >
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">RECYCLING BY MATERIAL</span>
@@ -298,7 +298,7 @@ const Dashboard = () => {
         <Col xs={24} lg={8} className="flex">
           <Card
             className="rounded-xl border border-slate-100 shadow-sm h-full w-full"
-            bodyStyle={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' }}
+            styles={{ body: { padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' } }}
           >
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">POINTS TREND</span>
@@ -325,7 +325,7 @@ const Dashboard = () => {
         </Col>
       </Row>
 
-      <Card className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '24px' }}>
+      <Card className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
         <div className="flex justify-between items-center mb-4">
           <span className="text-lg text-slate-800 tracking-wide">RECENT RECYCLING TRANSACTIONS</span>
           <Tag className="bg-slate-50 border-slate-200 text-slate-600">Limit 5</Tag>
@@ -337,6 +337,7 @@ const Dashboard = () => {
           dataSource={recentRecycling}
           loading={recentRecyclingLoading}
           pagination={false}
+          scroll={{ x: 940 }}
           locale={{ emptyText: 'No recent recycling transactions' }}
         />
       </Card>

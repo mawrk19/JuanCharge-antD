@@ -35,7 +35,7 @@ import {
   updateLgu,
   upsertLguSystemConfig,
 } from './lgu.api';
-import { getStoredRole } from '../../services/authStorage';
+import { getStoredRole, USER_KEY } from '../../services/authStorage';
 import LguModal from './LguModal';
 
 const DAY_OPTIONS = [
@@ -80,13 +80,36 @@ const LguIndex = () => {
   const currentRole = getStoredRole();
   const isSuperAdmin = currentRole === 'super_admin';
 
-  const scopedParams = selectedConfigLguId ? { lgu_id: selectedConfigLguId } : {};
+  const currentUserLguId = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(USER_KEY);
+      const user = raw ? JSON.parse(raw) : null;
+      return user?.lgu_id || null;
+    } catch {
+      return null;
+    }
+  }, []);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['lgus'],
     queryFn: getLgus,
     select: (res) => (Array.isArray(res.data) ? res.data : res.data?.data || []),
   });
+
+  const resolvedConfigLguId = useMemo(() => {
+    if (selectedConfigLguId) return selectedConfigLguId;
+    if (currentUserLguId) return currentUserLguId;
+    if (isSuperAdmin && data.length > 0) return data[0]?.id || null;
+    return null;
+  }, [selectedConfigLguId, currentUserLguId, isSuperAdmin, data]);
+
+  const scopedParams = resolvedConfigLguId ? { lgu_id: resolvedConfigLguId } : {};
+
+  useEffect(() => {
+    if (!selectedConfigLguId && resolvedConfigLguId) {
+      setSelectedConfigLguId(resolvedConfigLguId);
+    }
+  }, [selectedConfigLguId, resolvedConfigLguId]);
 
   const createLguMutation = useMutation({ mutationFn: createLgu });
   const updateLguMutation = useMutation({ mutationFn: ({ id, payload }) => updateLgu(id, payload) });
@@ -212,8 +235,16 @@ const LguIndex = () => {
   };
 
   const handleSaveSystemConfig = async () => {
+    if (!resolvedConfigLguId) {
+      message.error('No LGU selected. Please select an LGU first.');
+      return;
+    }
+
     try {
-      await saveSystemConfigMutation.mutateAsync(configDraft);
+      await saveSystemConfigMutation.mutateAsync({
+        ...configDraft,
+        lgu_id: resolvedConfigLguId,
+      });
       message.success('LGU system configuration saved successfully.');
       await queryClient.invalidateQueries({ queryKey: ['lgu-system-config'] });
     } catch (error) {
@@ -474,16 +505,16 @@ const LguIndex = () => {
       label: 'LGU Directory',
       children: (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold">LGU Management</h1>
               <p className="text-gray-500">Manage LGU profiles and contacts</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
               <Input
                 prefix={<SearchOutlined />}
                 placeholder="Search LGUs..."
-                className="w-64"
+                className="w-full sm:w-64"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -503,6 +534,7 @@ const LguIndex = () => {
                 showSizeChanger: true,
                 pageSizeOptions: ['5', '10', '20', '50', '100'],
               }}
+              scroll={{ x: 980 }}
             />
           </Card>
         </>
@@ -583,7 +615,7 @@ const LguIndex = () => {
       label: 'Collection Schedules',
       children: (
         <Card>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold">Collection Schedules</h2>
               <p className="text-gray-500">Manage collection schedules and notify LGU users.</p>
@@ -612,6 +644,7 @@ const LguIndex = () => {
             dataSource={schedules}
             columns={scheduleColumns}
             pagination={{ pageSize: 5 }}
+            scroll={{ x: 980 }}
           />
         </Card>
       ),
@@ -680,7 +713,7 @@ const LguIndex = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
 
       <LguModal

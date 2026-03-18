@@ -141,7 +141,7 @@ const RecyclingAnalytics = () => {
 
       <Row gutter={[24, 24]}>
         <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '20px 24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Items Recycled</Text>
               <DatabaseOutlined className="text-slate-400" />
@@ -151,7 +151,7 @@ const RecyclingAnalytics = () => {
         </Col>
 
         <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '20px 24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Top Recycled Item</Text>
               <TrophyOutlined className="text-slate-400" />
@@ -162,7 +162,7 @@ const RecyclingAnalytics = () => {
         </Col>
 
         <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '20px 24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Recycling Velocity / Day</Text>
               <FireOutlined className="text-slate-400" />
@@ -175,7 +175,7 @@ const RecyclingAnalytics = () => {
 
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={10}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full" bodyStyle={{ padding: '24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">Storage Distribution</span>
               <Tag className="bg-slate-50 border-slate-200 text-slate-600">{dateWindow} days</Tag>
@@ -206,7 +206,7 @@ const RecyclingAnalytics = () => {
         </Col>
 
         <Col xs={24} lg={14}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">Itemized Breakdown</span>
               <Tag className="bg-green-50 border-green-200 text-green-700">Collected</Tag>
@@ -217,6 +217,7 @@ const RecyclingAnalytics = () => {
               columns={columns}
               dataSource={tableData}
               pagination={false}
+              scroll={{ x: 760 }}
               locale={{ emptyText: 'No item breakdown available' }}
             />
           </Card>

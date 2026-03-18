@@ -8,6 +8,7 @@ import { getStoredRole, USER_KEY } from '../../services/authStorage';
 
 const LguUserIndex = () => {
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
@@ -73,6 +74,24 @@ const LguUserIndex = () => {
   });
 
   const submitLoading = createUserMutation.isPending || updateUserMutation.isPending;
+
+  const filteredData = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return data;
+
+    return data.filter((item) => {
+      const fields = [
+        item.name,
+        item.first_name,
+        item.last_name,
+        item.email,
+        item.status,
+        item?.lgu?.name,
+      ];
+
+      return fields.some((value) => String(value || '').toLowerCase().includes(term));
+    });
+  }, [data, searchTerm]);
 
   const handleAdd = () => {
     setSelectedUser(null);
@@ -201,7 +220,13 @@ const LguUserIndex = () => {
           <p className="text-gray-500">Manage LGU users, roles, and permissions</p>
         </div>
         <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
-          <Input prefix={<SearchOutlined />} placeholder="Search users..." className="w-full sm:w-64" />
+          <Input
+            prefix={<SearchOutlined />}
+            placeholder="Search users..."
+            className="w-full sm:w-64"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
           <Button type="primary" icon={<PlusOutlined />} className="bg-green-600" onClick={handleAdd}>Add User</Button>
         </div>
       </div>
@@ -209,7 +234,7 @@ const LguUserIndex = () => {
       <Card>
         <Table 
           columns={columns} 
-          dataSource={data} 
+          dataSource={filteredData} 
           loading={isLoading || deleteUserMutation.isPending} 
           rowKey="id" 
           pagination={{

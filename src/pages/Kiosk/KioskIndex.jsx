@@ -21,6 +21,7 @@ import KioskFieldReportsAdmin from './KioskFieldReportsAdmin';
 import { getStoredRole, USER_KEY } from '../../services/authStorage';
 
 const KioskIndex = () => {
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedKiosk, setSelectedKiosk] = useState(null);
   const queryClient = useQueryClient();
@@ -168,6 +169,24 @@ const KioskIndex = () => {
   });
 
   const submitLoading = createKioskMutation.isPending || updateKioskMutation.isPending;
+
+  const filteredKiosks = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return data;
+
+    return data.filter((item) => {
+      const fields = [
+        item.kiosk_code,
+        item.lgu_name,
+        item.location,
+        item.status,
+        item.collection_schedule?.name,
+        item.collection_schedule_name,
+      ];
+
+      return fields.some((value) => String(value || '').toLowerCase().includes(term));
+    });
+  }, [data, searchTerm]);
 
   const handleAdd = () => {
     setSelectedKiosk(null);
@@ -385,7 +404,13 @@ const KioskIndex = () => {
             </div>
             {canManageKiosks ? (
               <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
-                <Input prefix={<SearchOutlined />} placeholder="Search kiosks..." className="w-full sm:w-64" />
+                <Input
+                  prefix={<SearchOutlined />}
+                  placeholder="Search kiosks..."
+                  className="w-full sm:w-64"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
                 <Button type="primary" icon={<PlusOutlined />} className="bg-green-600" onClick={handleAdd}>Add Kiosk</Button>
               </div>
             ) : null}
@@ -394,7 +419,7 @@ const KioskIndex = () => {
           <Card>
             <Table
               columns={columns}
-              dataSource={data}
+              dataSource={filteredKiosks}
               loading={isLoading}
               rowKey="id"
               pagination={{

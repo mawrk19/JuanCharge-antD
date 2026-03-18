@@ -24,7 +24,7 @@ const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
 const SUPER_ADMIN_ROLES = ['super_admin'];
 const LGU_ADMIN_AND_UP_ROLES = ['super_admin', 'lgu_admin'];
 const KIOSK_ACCESS_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
-const AUDIT_TRAIL_ROLES = ['super_admin', 'lgu_admin'];
+const AUDIT_TRAIL_ROLES = ['super_admin'];
 const ANY_MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
 const ANALYTICS_AND_MAP_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
 

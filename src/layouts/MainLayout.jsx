@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Layout, Menu, Badge, Dropdown, Button, Avatar, Drawer, Modal, Switch, Select, Input, message, theme } from 'antd';
 import { 
   MenuUnfoldOutlined,
@@ -31,6 +31,7 @@ const MainLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileDrawerVisible, setMobileDrawerVisible] = useState(false);
   const [notifications, setNotifications] = useState([]); 
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [activeSettingsSection, setActiveSettingsSection] = useState('appearance');
   const [appSettings, setAppSettings] = useState(() => {
@@ -106,6 +107,88 @@ const MainLayout = () => {
   const isLguAdmin = userType === 'lgu_admin';
   const isLguStaff = userType === 'lgu_staff';
 
+  const normalizeNotificationsPayload = (payload) => {
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : Array.isArray(payload?.data?.data)
+          ? payload.data.data
+          : [];
+
+    return rows.map((item) => ({
+      id: item.id,
+      title: item.title || item.subject || 'Collection Notification',
+      message: item.message || item.body || 'No details provided.',
+      read: Boolean(item.read_at),
+      created_at: item.created_at,
+    }));
+  };
+
+  const fetchNotifications = async ({ silent = false } = {}) => {
+    if (!isManagementRole(userType) || !appSettings.notificationsEnabled) {
+      setNotifications([]);
+      return;
+    }
+
+    if (!silent) {
+      setNotificationsLoading(true);
+    }
+
+    try {
+      const response = await api.get('/collection-notifications');
+      const normalized = normalizeNotificationsPayload(response?.data);
+      setNotifications(normalized);
+    } catch (error) {
+      console.error('Failed to fetch topbar notifications:', error);
+    } finally {
+      if (!silent) {
+        setNotificationsLoading(false);
+      }
+    }
+  };
+
+  const handleMarkNotificationRead = async (id) => {
+    try {
+      await api.post(`/collection-notifications/${id}/read`);
+      setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+    } catch (error) {
+      await showErrorAlert(error, 'Failed to mark notification as read.');
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    const unreadIds = notifications.filter((item) => !item.read).map((item) => item.id);
+    if (unreadIds.length === 0) {
+      return;
+    }
+
+    try {
+      await Promise.all(unreadIds.map((id) => api.post(`/collection-notifications/${id}/read`)));
+      setNotifications((prev) => prev.map((item) => ({ ...item, read: true })));
+      message.success('All notifications marked as read.');
+    } catch (error) {
+      await showErrorAlert(error, 'Failed to mark all notifications as read.');
+    }
+  };
+
+  useEffect(() => {
+    if (!isManagementRole(userType) || !appSettings.notificationsEnabled) {
+      setNotifications([]);
+      return;
+    }
+
+    fetchNotifications();
+
+    const pollId = window.setInterval(() => {
+      fetchNotifications({ silent: true });
+    }, 30000);
+
+    return () => {
+      window.clearInterval(pollId);
+    };
+  }, [userType, appSettings.notificationsEnabled]);
+
   const getRoleLabel = () => {
     if (isAdmin) return "Administrator";
     if (userType === 'lgu_admin') return "LGU Admin";
@@ -139,7 +222,6 @@ const MainLayout = () => {
         { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
         { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
         { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
-        { key: '/main/audit-trails', icon: <FileSearchOutlined />, label: 'Audit Trail' },
       ];
     }
 
@@ -715,7 +797,12 @@ const MainLayout = () => {
       <div className="flex justify-between items-center p-4 border-b border-slate-100">
         <span className="font-bold text-slate-800">Notifications</span>
         {notifications.filter(n => !n.read).length > 0 && (
-          <Button type="link" size="small" className="text-green-600 font-semibold p-0 h-auto">
+          <Button
+            type="link"
+            size="small"
+            className="text-green-600 font-semibold p-0 h-auto"
+            onClick={handleMarkAllNotificationsRead}
+          >
             Mark all read
           </Button>
         )}
@@ -723,11 +810,28 @@ const MainLayout = () => {
       {notifications.length === 0 ? (
         <div className="p-6 text-center text-slate-400">
           <BellOutlined className="text-3xl mb-2 block" />
-          <div>No notifications</div>
+          <div>{notificationsLoading ? 'Loading notifications...' : 'No notifications'}</div>
         </div>
       ) : (
         <div className="divide-y divide-slate-100">
-          {/* Notifications Map would go here */}
+          {notifications.map((item) => (
+            <div key={item.id} className={`p-3 ${item.read ? 'bg-white' : 'bg-emerald-50/40'}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-semibold text-slate-800">{item.title}</div>
+                  <div className="text-xs text-slate-600 mt-1">{item.message}</div>
+                  <div className="text-[11px] text-slate-400 mt-2">
+                    {item.created_at ? new Date(item.created_at).toLocaleString() : '-'}
+                  </div>
+                </div>
+                {!item.read && (
+                  <Button type="link" size="small" className="p-0 h-auto" onClick={() => handleMarkNotificationRead(item.id)}>
+                    Mark read
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

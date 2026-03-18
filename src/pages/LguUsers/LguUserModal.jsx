@@ -168,6 +168,15 @@ const LguUserModal = ({
 									</div>
 								),
 							},
+							{
+								value: 'lgu_technician',
+								label: (
+									<div>
+										<span className="font-medium">LGU Technician</span>
+										<p className="text-xs text-gray-400 m-0">Can handle kiosk maintenance tickets</p>
+									</div>
+								),
+							},
 						]}
 					/>
 				</Form.Item>

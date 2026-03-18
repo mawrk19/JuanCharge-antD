@@ -100,7 +100,10 @@ const KioskIndex = () => {
 
   const technicianOptions = useMemo(() => {
     return (users || [])
-      .filter((user) => ['lgu_staff', 'technician'].includes(String(user?.role_slug || '').toLowerCase()))
+      .filter((user) => {
+        const slug = String(user?.role_slug || user?.role?.slug || '').toLowerCase();
+        return ['lgu_staff', 'lgu_technician', 'technician'].includes(slug);
+      })
       .map((user) => ({
         value: user.id,
         label: user.name || [user.first_name, user.last_name].filter(Boolean).join(' ') || `User #${user.id}`,

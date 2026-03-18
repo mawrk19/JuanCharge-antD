@@ -10,6 +10,26 @@ const getRecyclingAnalytics = (days) => api.get('/admin/analytics/recycling', { 
 
 const parseCount = (value) => Number(value || 0);
 
+const normalizeMaterialKey = (value) => {
+  const raw = String(value || 'unknown').toLowerCase().replace(/[_\s]+/g, '');
+
+  if (raw.includes('plastic') || raw.includes('pet')) return 'plastic';
+  if (raw.includes('aluminum') || raw.includes('aluminium')) return 'aluminum_cans';
+  if (raw.includes('tin')) return 'tin_cans';
+  if (raw.includes('glass')) return 'glass';
+  if (raw.includes('mixed')) return 'mixed';
+  return 'other';
+};
+
+const MATERIAL_META = {
+  plastic: { material: 'Plastic Bottles', color: '#22c55e' },
+  aluminum_cans: { material: 'Aluminum Cans', color: '#06b6d4' },
+  tin_cans: { material: 'Tin Cans', color: '#f59e0b' },
+  glass: { material: 'Glass', color: '#8b5cf6' },
+  mixed: { material: 'Mixed', color: '#64748b' },
+  other: { material: 'Other', color: '#ef4444' },
+};
+
 const RecyclingAnalytics = () => {
   const [dateWindow, setDateWindow] = useState(7);
 
@@ -47,21 +67,23 @@ const RecyclingAnalytics = () => {
   const storageRows = useMemo(() => {
     const map = new Map();
     breakdown.forEach((row) => {
-      map.set(String(row.item_type || '').toLowerCase(), parseCount(row.total_count));
+      const key = normalizeMaterialKey(row.item_type);
+      map.set(key, (map.get(key) || 0) + parseCount(row.total_count));
     });
 
-    const plasticBottles = map.get('plastic bottles') ?? map.get('plastic') ?? 0;
-    const aluminumCans = map.get('aluminum cans') ?? map.get('aluminum') ?? map.get('metal') ?? 0;
-    const tinCans = map.get('tin cans') ?? map.get('tin') ?? 0;
+    const orderedKeys = ['plastic', 'aluminum_cans', 'tin_cans', 'glass', 'mixed', 'other'];
 
-    return [
-      { key: 'plastic-bottles', material: 'Plastic Bottles', count: plasticBottles, color: '#22c55e' },
-      { key: 'aluminum-cans', material: 'Aluminum Cans', count: aluminumCans, color: '#06b6d4' },
-      { key: 'tin-cans', material: 'Tin Cans', count: tinCans, color: '#f59e0b' },
-    ];
+    return orderedKeys
+      .map((key) => ({
+        key,
+        material: MATERIAL_META[key].material,
+        color: MATERIAL_META[key].color,
+        count: map.get(key) || 0,
+      }))
+      .filter((row) => row.count > 0);
   }, [breakdown]);
 
-  const storageTotal = storageRows.reduce((sum, row) => sum + row.count, 0);
+  const storageTotal = Number(analytics.breakdown_total_items || storageRows.reduce((sum, row) => sum + row.count, 0));
 
   const storageWithPercent = storageRows.map((row) => ({
     ...row,

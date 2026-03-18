@@ -103,6 +103,12 @@ const LguIndex = () => {
     return null;
   }, [selectedConfigLguId, currentUserLguId, isSuperAdmin, data]);
 
+  const resolvedConfigLguName = useMemo(() => {
+    if (!resolvedConfigLguId) return 'No LGU Selected';
+    const scopedLgu = data.find((item) => item.id === resolvedConfigLguId);
+    return scopedLgu?.name || 'Selected LGU';
+  }, [data, resolvedConfigLguId]);
+
   const scopedParams = resolvedConfigLguId ? { lgu_id: resolvedConfigLguId } : {};
 
   useEffect(() => {
@@ -549,15 +555,27 @@ const LguIndex = () => {
       label: 'System Config',
       children: (
         <Card loading={configLoading}>
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-semibold">Points Configuration</h2>
-              <p className="text-gray-500">Configure points conversion per item type for kiosk machines.</p>
+          <div className="space-y-6">
+            <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-5">
+              <h2 className="text-xl font-semibold text-slate-800">Points Configuration</h2>
+              <p className="mt-1 text-sm text-slate-600">Configure item-based point conversion for kiosk transactions.</p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-xs uppercase tracking-wide text-slate-400">LGU Scope</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-700">{resolvedConfigLguName}</div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Last Updated</div>
+                  <div className="mt-1 text-sm font-semibold text-slate-700">
+                    {systemConfig?.updated_at ? new Date(systemConfig.updated_at).toLocaleString() : 'No updates yet'}
+                  </div>
+                </div>
+              </div>
             </div>
 
             {isSuperAdmin && (
               <div className="max-w-sm">
-                <div className="text-sm font-medium text-slate-700 mb-2">LGU Scope</div>
+                <div className="text-sm font-medium text-slate-700 mb-2">Select LGU Scope</div>
                 <Select
                   allowClear
                   placeholder="Select LGU"
@@ -569,47 +587,56 @@ const LguIndex = () => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
                 <div className="mb-2 text-sm font-medium text-slate-700">Points per Bottle</div>
                 <InputNumber
                   className="w-full"
                   min={0}
+                  size="large"
+                  step={0.1}
+                  addonAfter="pts"
                   value={configDraft.points_per_bottle}
                   onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_bottle: Number(value || 0) }))}
                 />
               </div>
-              <div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
                 <div className="mb-2 text-sm font-medium text-slate-700">Points per Tin Can</div>
                 <InputNumber
                   className="w-full"
                   min={0}
+                  size="large"
+                  step={0.1}
+                  addonAfter="pts"
                   value={configDraft.points_per_tin_can}
                   onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_tin_can: Number(value || 0) }))}
                 />
               </div>
-              <div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
                 <div className="mb-2 text-sm font-medium text-slate-700">Points per Aluminum Can</div>
                 <InputNumber
                   className="w-full"
                   min={0}
+                  size="large"
+                  step={0.1}
+                  addonAfter="pts"
                   value={configDraft.points_per_aluminum_can}
                   onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_aluminum_can: Number(value || 0) }))}
                 />
               </div>
             </div>
 
-            <Button
-              type="primary"
-              className="bg-green-600"
-              onClick={handleSaveSystemConfig}
-              loading={saveSystemConfigMutation.isPending}
-            >
-              Save Configuration
-            </Button>
-
-            {systemConfig?.updated_at ? (
-              <p className="text-xs text-gray-500">Last updated: {new Date(systemConfig.updated_at).toLocaleString()}</p>
-            ) : null}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200 pt-4">
+              <p className="text-xs text-slate-500">Changes apply to kiosk point conversion rules for the selected LGU.</p>
+              <Button
+                type="primary"
+                size="large"
+                className="bg-green-600"
+                onClick={handleSaveSystemConfig}
+                loading={saveSystemConfigMutation.isPending}
+              >
+                Save Configuration
+              </Button>
+            </div>
           </div>
         </Card>
       ),

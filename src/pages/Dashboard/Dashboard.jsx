@@ -13,6 +13,27 @@ const { Title, Text } = Typography;
 
 const getDashboardOverview = () => api.get('/dashboard/overview');
 const getRecentRecycling = () => api.get('/dashboard/recycling?limit=5');
+const getRecyclingAnalytics = (days = 7) => api.get('/admin/analytics/recycling', { params: { days } });
+
+const normalizeMaterialKey = (value) => {
+  const raw = String(value || 'unknown').toLowerCase().replace(/[_\s]+/g, '');
+
+  if (raw.includes('plastic') || raw.includes('pet')) return 'plastic';
+  if (raw.includes('aluminum') || raw.includes('aluminium')) return 'aluminum_cans';
+  if (raw.includes('tin')) return 'tin_cans';
+  if (raw.includes('glass')) return 'glass';
+  if (raw.includes('mixed')) return 'mixed';
+  return 'other';
+};
+
+const MATERIAL_LABELS = {
+  plastic: 'PET/Plastic Bottles',
+  tin_cans: 'Tin/Cans',
+  aluminum_cans: 'Aluminum/Cans',
+  glass: 'Glass',
+  mixed: 'Mixed',
+  other: 'Other',
+};
 
 const Dashboard = () => {
   const { data: overview } = useQuery({
@@ -27,6 +48,12 @@ const Dashboard = () => {
     select: (res) => (Array.isArray(res.data?.data) ? res.data.data : []),
   });
 
+  const { data: recyclingAnalytics = {} } = useQuery({
+    queryKey: ['dashboard-recycling-analytics', 7],
+    queryFn: () => getRecyclingAnalytics(7),
+    select: (res) => res.data?.data || {},
+  });
+
   const totalUsers = overview?.total_users ?? 0;
   const activeKiosks = overview?.kiosks?.active ?? 0;
   const totalKiosks = overview?.kiosks?.total ?? 0;
@@ -34,31 +61,43 @@ const Dashboard = () => {
   const recyclingWeight = overview?.recycling?.total_weight_kg ?? 0;
   const recyclingDrops = overview?.recycling?.total_deposits ?? 0;
 
-  const pointsInCirculation = Number(overview?.points_in_circulation ?? 0);
+  const pointsInCirculation = Number(overview?.recycling?.accumulated_points ?? 0);
   const co2Saved = Number(overview?.co2_saved_kg ?? 0);
 
   const materialBreakdown = useMemo(() => {
     const map = new Map();
 
-    recentRecycling.forEach((item) => {
-      const key = item.item_type || 'unknown';
-      const weight = Number(item.weight_kg || 0);
-      map.set(key, (map.get(key) || 0) + weight);
+    const breakdown = Array.isArray(recyclingAnalytics?.breakdown) ? recyclingAnalytics.breakdown : [];
+
+    breakdown.forEach((item) => {
+      const key = normalizeMaterialKey(item.item_type);
+      const count = Number(item.total_count || 0);
+      map.set(key, (map.get(key) || 0) + count);
     });
 
-    const rows = Array.from(map.entries()).map(([type, weight]) => ({
+    const rows = Array.from(map.entries()).map(([type, count]) => ({
       type,
-      weight,
+      label: MATERIAL_LABELS[type] || 'Other',
+      count,
     }));
 
-    const totalWeight = rows.reduce((sum, row) => sum + row.weight, 0);
+    const totalCount = rows.reduce((sum, row) => sum + row.count, 0);
+
     return rows
-      .sort((a, b) => b.weight - a.weight)
+      .sort((a, b) => b.count - a.count)
       .map((row) => ({
         ...row,
-        percent: totalWeight > 0 ? (row.weight / totalWeight) * 100 : 0,
+        percent: totalCount > 0 ? (row.count / totalCount) * 100 : 0,
       }));
-  }, [recentRecycling]);
+  }, [recyclingAnalytics]);
+
+  const totalMaterialItems = useMemo(() => {
+    const fromBreakdown = Number(recyclingAnalytics?.breakdown_total_items || 0);
+    if (fromBreakdown > 0) return fromBreakdown;
+    const fromTotalItems = Number(recyclingAnalytics?.total_items || 0);
+    if (fromTotalItems > 0) return fromTotalItems;
+    return materialBreakdown.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  }, [recyclingAnalytics, materialBreakdown]);
 
   const pointsTrend = useMemo(() => {
     const rows = [...recentRecycling].reverse();
@@ -166,7 +205,7 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Registered</span>
-              <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+14%</span>
+              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+14%</span> */}
             </div>
           </Card>
         </Col>
@@ -184,7 +223,7 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Total Consumed</span>
-              <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+13%</span>
+              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+13%</span> */}
             </div>
           </Card>
         </Col>
@@ -202,7 +241,7 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Network Status</span>
-              <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+4.68%</span>
+              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+4.68%</span> */}
             </div>
           </Card>
         </Col>
@@ -220,7 +259,7 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Total Deposited</span>
-              <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">{recyclingDrops} drops</span>
+              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">{recyclingDrops} drops</span> */}
             </div>
           </Card>
         </Col>
@@ -264,15 +303,15 @@ const Dashboard = () => {
           >
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">RECYCLING BY MATERIAL</span>
-              <Tag className="bg-slate-50 border-slate-200 text-slate-600">Last 5</Tag>
+              <Tag className="bg-slate-50 border-slate-200 text-slate-600">Last 7 Days</Tag>
             </div>
 
             <div className="flex-1 flex flex-col items-center gap-4">
               <div className="relative w-44 h-44 rounded-full" style={{ background: materialChartData.conic }}>
                 <div className="absolute inset-6 rounded-full bg-white flex flex-col items-center justify-center border border-slate-100">
                   <div className="text-[11px] text-slate-400 uppercase tracking-wide">Total</div>
-                  <div className="text-2xl font-semibold text-slate-800">{Number(recyclingWeight).toFixed(2)}</div>
-                  <div className="text-xs text-slate-500">kg</div>
+                  <div className="text-2xl font-semibold text-slate-800">{Number(totalMaterialItems).toLocaleString()}</div>
+                  <div className="text-xs text-slate-500">items</div>
                 </div>
               </div>
 
@@ -284,9 +323,9 @@ const Dashboard = () => {
                     <div key={row.type} className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 text-slate-600">
                         <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: row.color }} />
-                        <span className="uppercase font-semibold">{row.type}</span>
+                        <span className="uppercase font-semibold">{row.label}</span>
                       </div>
-                      <span className="text-slate-500">{row.weight.toFixed(2)} kg</span>
+                      <span className="text-slate-500">{Number(row.count || 0).toLocaleString()} items</span>
                     </div>
                   ))
                 )}

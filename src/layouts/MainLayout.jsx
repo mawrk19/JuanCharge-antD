@@ -11,6 +11,7 @@ import {
   TeamOutlined,
   ThunderboltOutlined,
   BankOutlined,
+  FileSearchOutlined,
   SettingOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
@@ -128,6 +129,7 @@ const MainLayout = () => {
       return [
         { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
         { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
+        { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
       ];
     }
 
@@ -137,6 +139,7 @@ const MainLayout = () => {
         { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
         { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
         { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
+        { key: '/main/audit-trails', icon: <FileSearchOutlined />, label: 'Audit Trail' },
       ];
     }
 
@@ -148,6 +151,7 @@ const MainLayout = () => {
       { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' },
       { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
       { key: '/main/kiosks-users', icon: <UserOutlined />, label: 'Patrons' },
+      { key: '/main/audit-trails', icon: <FileSearchOutlined />, label: 'Audit Trail' },
     ];
 
     return items;

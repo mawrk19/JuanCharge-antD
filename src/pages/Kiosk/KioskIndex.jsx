@@ -1,10 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Table, Button, Input, Space, Card, Tag, message, Popconfirm } from 'antd';
+import { Table, Button, Input, Space, Card, Tag, Tabs, message, Popconfirm } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getKiosks, createKiosk, updateKiosk, deleteKiosk } from './kiosk.api';
+import { getLguUsers } from '../LguUsers/lguUser.api';
 import { getCollectionSchedules, getLgus } from '../Lgu/lgu.api';
+import {
+  closeTicket,
+  createFieldReport,
+  createTicketFromReport,
+  forceMaintenanceFromReport,
+  getFieldReports,
+  getKpi,
+  getMissedCollectionAlerts,
+  verifyFieldReport,
+} from './kioskFieldReports.api';
 import KioskModal from './KioskModal';
+import KioskFieldReportForm from './KioskFieldReportForm';
+import KioskFieldReportsAdmin from './KioskFieldReportsAdmin';
 import { getStoredRole, USER_KEY } from '../../services/authStorage';
 
 const KioskIndex = () => {
@@ -13,6 +26,9 @@ const KioskIndex = () => {
   const queryClient = useQueryClient();
   const currentRole = getStoredRole();
   const isLguAdmin = currentRole === 'lgu_admin';
+  const isLguStaff = currentRole === 'lgu_staff';
+  const canManageKiosks = currentRole === 'super_admin' || isLguAdmin;
+  const [activeTab, setActiveTab] = useState(isLguStaff ? 'field-reports' : 'directory');
 
   const currentUser = useMemo(() => {
     try {
@@ -50,6 +66,69 @@ const KioskIndex = () => {
     return lguOptions.find((lgu) => lgu.id === currentUserLguId)?.name;
   }, [currentUserLguId, lguOptions]);
 
+  const { data: reports = [] } = useQuery({
+    queryKey: ['kiosk-field-reports'],
+    queryFn: () => getFieldReports(),
+    select: (res) => (Array.isArray(res.data) ? res.data : res.data?.data || []),
+  });
+
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${now.getFullYear()}-${month}`;
+  }, []);
+
+  const { data: kpiData = null } = useQuery({
+    queryKey: ['kiosk-field-reports-kpi', currentMonth],
+    queryFn: () => getKpi(currentMonth),
+    select: (res) => res.data?.data || res.data || null,
+    enabled: !isLguStaff,
+  });
+
+  const { data: missedAlerts = [] } = useQuery({
+    queryKey: ['kiosk-missed-collection-alerts'],
+    queryFn: () => getMissedCollectionAlerts(),
+    select: (res) => (Array.isArray(res.data) ? res.data : res.data?.data || []),
+    enabled: !isLguStaff,
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['lgu-users-lite'],
+    queryFn: getLguUsers,
+    select: (res) => (Array.isArray(res.data) ? res.data : res.data?.data || []),
+  });
+
+  const technicianOptions = useMemo(() => {
+    return (users || [])
+      .filter((user) => ['lgu_staff', 'technician'].includes(String(user?.role_slug || '').toLowerCase()))
+      .map((user) => ({
+        value: user.id,
+        label: user.name || [user.first_name, user.last_name].filter(Boolean).join(' ') || `User #${user.id}`,
+      }));
+  }, [users]);
+
+  const lastServicedMap = useMemo(() => {
+    const map = new Map();
+
+    (data || []).forEach((kiosk) => {
+      if (kiosk?.last_serviced_at) {
+        map.set(kiosk.id, kiosk.last_serviced_at);
+      }
+    });
+
+    (reports || []).forEach((report) => {
+      if (report.activity_type !== 'collection_completed') return;
+      const existing = map.get(report.kiosk_id);
+      const reportTime = new Date(report.submitted_at).getTime();
+
+      if (!existing || reportTime > new Date(existing).getTime()) {
+        map.set(report.kiosk_id, report.submitted_at);
+      }
+    });
+
+    return map;
+  }, [data, reports]);
+
   const { data: scheduleOptions = [] } = useQuery({
     queryKey: ['collection-schedules-options'],
     queryFn: getCollectionSchedules,
@@ -62,6 +141,16 @@ const KioskIndex = () => {
       }));
     },
   });
+
+  const missedCollectionByKiosk = useMemo(() => {
+    const flagged = new Set();
+
+    (missedAlerts || []).forEach((alert) => {
+      if (alert?.kiosk_id) flagged.add(alert.kiosk_id);
+    });
+
+    return flagged;
+  }, [missedAlerts]);
 
   const createKioskMutation = useMutation({
     mutationFn: createKiosk,
@@ -93,6 +182,11 @@ const KioskIndex = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!canManageKiosks) {
+      message.error('You do not have permission to delete kiosks.');
+      return;
+    }
+
     try {
       await deleteKioskMutation.mutateAsync(id);
       message.success('Kiosk deleted successfully');
@@ -104,6 +198,11 @@ const KioskIndex = () => {
   };
 
   const handleModalSubmit = async (values) => {
+    if (!canManageKiosks) {
+      message.error('You do not have permission to manage kiosks.');
+      return;
+    }
+
     try {
       const payload = {
         ...values,
@@ -126,6 +225,52 @@ const KioskIndex = () => {
       message.error(selectedKiosk?.id ? 'Failed to update kiosk' : 'Failed to add kiosk');
       throw err;
     }
+  };
+
+  const handleSubmitFieldReport = async (payload) => {
+    await createFieldReport(payload);
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
+
+    if (payload.activity_type === 'collection_completed') {
+      await queryClient.invalidateQueries({ queryKey: ['kiosks'] });
+    }
+
+    if (!isLguStaff) {
+      await queryClient.invalidateQueries({ queryKey: ['kiosk-missed-collection-alerts'] });
+      await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports-kpi', currentMonth] });
+    }
+  };
+
+  const handleVerifyReport = async (reportId) => {
+    await verifyFieldReport(reportId);
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
+  };
+
+  const handleForceMaintenance = async (reportId) => {
+    await forceMaintenanceFromReport(reportId);
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
+    await queryClient.invalidateQueries({ queryKey: ['kiosks'] });
+    message.success('Kiosk status flagged as Under Maintenance from report discrepancy.');
+  };
+
+  const handleCreateTicket = async (reportId, ticketPayload) => {
+    await createTicketFromReport(reportId, ticketPayload);
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports-kpi', currentMonth] });
+  };
+
+  const handleCloseTicket = async (reportId, payload) => {
+    const targetReport = reports.find((item) => item.id === reportId);
+    const ticketId = targetReport?.ticket?.id;
+
+    if (!ticketId) {
+      message.error('Unable to locate ticket for this report.');
+      return;
+    }
+
+    await closeTicket(ticketId, payload);
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
+    await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports-kpi', currentMonth] });
   };
 
   const columns = [
@@ -181,57 +326,128 @@ const KioskIndex = () => {
       render: (date) => date ? new Date(date).toLocaleString() : <span className="text-gray-400">Never</span>
     },
     {
+      title: 'LAST SERVICED',
+      key: 'last_serviced',
+      render: (_, record) => {
+        const lastServiced = lastServicedMap.get(record.id);
+        return lastServiced ? new Date(lastServiced).toLocaleString() : <span className="text-gray-400">No report yet</span>;
+      },
+    },
+    {
+      title: 'ALERTS',
+      key: 'alerts',
+      render: (_, record) => (
+        missedCollectionByKiosk.has(record.id) ? <Tag color="red">Missed Collection</Tag> : <Tag color="green">On Track</Tag>
+      ),
+    },
+    {
       title: 'ACTIONS',
       key: 'actions',
       render: (_, record) => (
-        <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined className="text-blue-500" />}
-            onClick={() => handleEdit(record)}
-          />
-          <Popconfirm
-            title="Delete kiosk"
-            description="Are you sure you want to delete this kiosk?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Delete"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true }}
-          >
-            <Button type="text" icon={<DeleteOutlined className="text-red-500" />} />
-          </Popconfirm>
-        </Space>
+        canManageKiosks ? (
+          <Space>
+            <Button
+              type="text"
+              icon={<EditOutlined className="text-blue-500" />}
+              onClick={() => handleEdit(record)}
+            />
+            <Popconfirm
+              title="Delete kiosk"
+              description="Are you sure you want to delete this kiosk?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Delete"
+              cancelText="Cancel"
+              okButtonProps={{ danger: true }}
+            >
+              <Button type="text" icon={<DeleteOutlined className="text-red-500" />} />
+            </Popconfirm>
+          </Space>
+        ) : (
+          <span className="text-slate-400 text-sm">View only</span>
+        )
+      ),
+    },
+  ];
+
+  const tabItems = [
+    {
+      key: 'directory',
+      label: 'Kiosk Directory',
+      children: (
+        <>
+          <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-bold">Kiosk Management</h1>
+              <p className="text-gray-500">Manage kiosks, locations, and assignments</p>
+            </div>
+            {canManageKiosks ? (
+              <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
+                <Input prefix={<SearchOutlined />} placeholder="Search kiosks..." className="w-full sm:w-64" />
+                <Button type="primary" icon={<PlusOutlined />} className="bg-green-600" onClick={handleAdd}>Add Kiosk</Button>
+              </div>
+            ) : null}
+          </div>
+
+          <Card>
+            <Table
+              columns={columns}
+              dataSource={data}
+              loading={isLoading}
+              rowKey="id"
+              pagination={{
+                defaultPageSize: 5,
+                showSizeChanger: true,
+                pageSizeOptions: ['5', '10', '20', '50', '100'],
+              }}
+              scroll={{ x: 980 }}
+            />
+          </Card>
+        </>
+      ),
+    },
+    {
+      key: 'field-reports',
+      label: 'Field Reports',
+      children: (
+        <>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold">Field Report Form</h1>
+            <p className="text-gray-500">
+              {isLguStaff
+                ? 'Document scheduled collection and maintenance visits with photo proof.'
+                : 'Review submissions, verify evidence, and manage maintenance tickets.'}
+            </p>
+          </div>
+          {isLguStaff ? (
+            <KioskFieldReportForm
+              kiosks={data}
+              scheduleOptions={scheduleOptions}
+              currentRole={currentRole}
+              currentUser={currentUser}
+              onSubmitReport={handleSubmitFieldReport}
+            />
+          ) : (
+            <KioskFieldReportsAdmin
+              reports={reports}
+              kiosks={data}
+              scheduleOptions={scheduleOptions}
+              technicianOptions={technicianOptions}
+              kpiData={kpiData}
+              missedAlertKioskIds={Array.from(missedCollectionByKiosk)}
+              onVerify={handleVerifyReport}
+              onForceMaintenance={handleForceMaintenance}
+              onCreateTicket={handleCreateTicket}
+              onCloseTicket={handleCloseTicket}
+            />
+          )}
+        </>
       ),
     },
   ];
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Kiosk Management</h1>
-          <p className="text-gray-500">Manage kiosks, locations, and assignments</p>
-        </div>
-        <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
-          <Input prefix={<SearchOutlined />} placeholder="Search kiosks..." className="w-full sm:w-64" />
-          <Button type="primary" icon={<PlusOutlined />} className="bg-green-600" onClick={handleAdd}>Add Kiosk</Button>
-        </div>
-      </div>
-
-      <Card>
-        <Table 
-          columns={columns} 
-          dataSource={data} 
-          loading={isLoading} 
-          rowKey="id" 
-          pagination={{
-            defaultPageSize: 5,
-            showSizeChanger: true,
-            pageSizeOptions: ['5', '10', '20', '50', '100'],
-          }}
-          scroll={{ x: 980 }}
-        />
-      </Card>
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
 
       <KioskModal
         open={isModalOpen}

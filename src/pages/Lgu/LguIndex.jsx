@@ -69,9 +69,9 @@ const LguIndex = () => {
   const [activeTab, setActiveTab] = useState('directory');
   const [selectedConfigLguId, setSelectedConfigLguId] = useState(undefined);
   const [configDraft, setConfigDraft] = useState({
-    minutes_per_bottle: 0,
-    minutes_per_kg: 0,
-    points_per_kg: 0,
+    points_per_bottle: 0,
+    points_per_tin_can: 0,
+    points_per_aluminum_can: 0,
   });
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
@@ -128,9 +128,9 @@ const LguIndex = () => {
     }
 
     setConfigDraft({
-      minutes_per_bottle: Number(systemConfig?.minutes_per_bottle || 0),
-      minutes_per_kg: Number(systemConfig?.minutes_per_kg || 0),
-      points_per_kg: Number(systemConfig?.points_per_kg || 0),
+      points_per_bottle: Number(systemConfig?.points_per_bottle ?? systemConfig?.minutes_per_bottle ?? 0),
+      points_per_tin_can: Number(systemConfig?.points_per_tin_can ?? systemConfig?.minutes_per_kg ?? 0),
+      points_per_aluminum_can: Number(systemConfig?.points_per_aluminum_can ?? systemConfig?.points_per_kg ?? 0),
     });
   }, [systemConfig]);
 
@@ -243,6 +243,10 @@ const LguIndex = () => {
     try {
       await saveSystemConfigMutation.mutateAsync({
         ...configDraft,
+        // Backward-compatible keys in case backend still reads legacy config fields.
+        minutes_per_bottle: configDraft.points_per_bottle,
+        minutes_per_kg: configDraft.points_per_tin_can,
+        points_per_kg: configDraft.points_per_aluminum_can,
         lgu_id: resolvedConfigLguId,
       });
       message.success('LGU system configuration saved successfully.');
@@ -547,8 +551,8 @@ const LguIndex = () => {
         <Card loading={configLoading}>
           <div className="space-y-5">
             <div>
-              <h2 className="text-lg font-semibold">Machine Exchange Rates</h2>
-              <p className="text-gray-500">Configure minutes and points conversion for kiosk machines.</p>
+              <h2 className="text-lg font-semibold">Points Configuration</h2>
+              <p className="text-gray-500">Configure points conversion per item type for kiosk machines.</p>
             </div>
 
             {isSuperAdmin && (
@@ -566,30 +570,30 @@ const LguIndex = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <div className="mb-2 text-sm font-medium text-slate-700">Minutes per Bottle</div>
+                <div className="mb-2 text-sm font-medium text-slate-700">Points per Bottle</div>
                 <InputNumber
                   className="w-full"
                   min={0}
-                  value={configDraft.minutes_per_bottle}
-                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, minutes_per_bottle: Number(value || 0) }))}
+                  value={configDraft.points_per_bottle}
+                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_bottle: Number(value || 0) }))}
                 />
               </div>
               <div>
-                <div className="mb-2 text-sm font-medium text-slate-700">Minutes per KG</div>
+                <div className="mb-2 text-sm font-medium text-slate-700">Points per Tin Can</div>
                 <InputNumber
                   className="w-full"
                   min={0}
-                  value={configDraft.minutes_per_kg}
-                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, minutes_per_kg: Number(value || 0) }))}
+                  value={configDraft.points_per_tin_can}
+                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_tin_can: Number(value || 0) }))}
                 />
               </div>
               <div>
-                <div className="mb-2 text-sm font-medium text-slate-700">Points per KG</div>
+                <div className="mb-2 text-sm font-medium text-slate-700">Points per Aluminum Can</div>
                 <InputNumber
                   className="w-full"
                   min={0}
-                  value={configDraft.points_per_kg}
-                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_kg: Number(value || 0) }))}
+                  value={configDraft.points_per_aluminum_can}
+                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_aluminum_can: Number(value || 0) }))}
                 />
               </div>
             </div>

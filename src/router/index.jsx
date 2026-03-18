@@ -18,10 +18,13 @@ import LguIndex from '../pages/Lgu/LguIndex'
 import RecyclingAnalytics from '../pages/RecyclingAnalytics/RecyclingAnalytics'
 import MapView from '../pages/Map/MapView'
 import PatronIndex from '../pages/Petron/PatronIndex'
+import AuditTrailIndex from '../pages/AuditTrail/AuditTrailIndex'
 
 const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
 const SUPER_ADMIN_ROLES = ['super_admin'];
 const LGU_ADMIN_AND_UP_ROLES = ['super_admin', 'lgu_admin'];
+const KIOSK_ACCESS_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
+const AUDIT_TRAIL_ROLES = ['super_admin', 'lgu_admin'];
 const ANY_MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
 const ANALYTICS_AND_MAP_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
 
@@ -117,7 +120,7 @@ const routes = [
       {
         path: 'kiosks',
         element: (
-          <ProtectedRoute allowedRoles={LGU_ADMIN_AND_UP_ROLES}>
+          <ProtectedRoute allowedRoles={KIOSK_ACCESS_ROLES}>
             <KioskIndex />
           </ProtectedRoute>
         ),
@@ -135,6 +138,14 @@ const routes = [
         element: (
           <ProtectedRoute allowedRoles={SUPER_ADMIN_ROLES}>
             <PatronIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'audit-trails',
+        element: (
+          <ProtectedRoute allowedRoles={AUDIT_TRAIL_ROLES}>
+            <AuditTrailIndex />
           </ProtectedRoute>
         ),
       },

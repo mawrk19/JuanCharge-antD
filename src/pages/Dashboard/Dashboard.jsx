@@ -325,7 +325,7 @@ const Dashboard = () => {
         </Col>
       </Row>
 
-      <Card className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
+      {/* <Card className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
         <div className="flex justify-between items-center mb-4">
           <span className="text-lg text-slate-800 tracking-wide">RECENT RECYCLING TRANSACTIONS</span>
           <Tag className="bg-slate-50 border-slate-200 text-slate-600">Limit 5</Tag>
@@ -340,7 +340,7 @@ const Dashboard = () => {
           scroll={{ x: 940 }}
           locale={{ emptyText: 'No recent recycling transactions' }}
         />
-      </Card>
+      </Card> */}
     </div>
   );
 };

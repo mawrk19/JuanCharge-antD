@@ -20,13 +20,13 @@ import MapView from '../pages/Map/MapView'
 import PatronIndex from '../pages/Petron/PatronIndex'
 import AuditTrailIndex from '../pages/AuditTrail/AuditTrailIndex'
 
-const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
+const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff', 'lgu_technician'];
 const SUPER_ADMIN_ROLES = ['super_admin'];
 const LGU_ADMIN_AND_UP_ROLES = ['super_admin', 'lgu_admin'];
-const KIOSK_ACCESS_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
+const KIOSK_ACCESS_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff', 'lgu_technician'];
 const AUDIT_TRAIL_ROLES = ['super_admin'];
-const ANY_MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
-const ANALYTICS_AND_MAP_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
+const ANY_MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff', 'lgu_technician'];
+const ANALYTICS_AND_MAP_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff', 'lgu_technician'];
 
 const NoAccessPage = () => (
   <div className="min-h-[60vh] flex items-center justify-center p-6">

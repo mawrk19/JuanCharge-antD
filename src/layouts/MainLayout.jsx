@@ -106,6 +106,7 @@ const MainLayout = () => {
   const isAdmin = isSuperAdminRole(userType);
   const isLguAdmin = userType === 'lgu_admin';
   const isLguStaff = userType === 'lgu_staff';
+  const isLguTechnician = userType === 'lgu_technician';
 
   const normalizeNotificationsPayload = (payload) => {
     const rows = Array.isArray(payload)
@@ -193,6 +194,7 @@ const MainLayout = () => {
     if (isAdmin) return "Administrator";
     if (userType === 'lgu_admin') return "LGU Admin";
     if (userType === 'lgu_staff') return "LGU Staff";
+    if (userType === 'lgu_technician') return "LGU Technician";
     if (userType === 'kiosk_user') return "Kiosk User";
     return "User";
   };
@@ -208,7 +210,7 @@ const MainLayout = () => {
       return [];
     }
 
-    if (isLguStaff) {
+    if (isLguStaff || isLguTechnician) {
       return [
         { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
         { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },

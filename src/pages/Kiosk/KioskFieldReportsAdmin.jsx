@@ -273,7 +273,7 @@ const KioskFieldReportsAdmin = ({
   const openCreateTicket = (report) => {
     setSelectedReport(report);
     ticketForm.setFieldsValue({
-      assigned_to_id: undefined,
+      assigned_to_user_id: undefined,
       priority: 'medium',
       issue_summary: report.notes || '',
     });
@@ -291,10 +291,11 @@ const KioskFieldReportsAdmin = ({
 
   const handleCreateTicket = async () => {
     const values = await ticketForm.validateFields();
-    const assigned = technicianOptions.find((item) => item.value === values.assigned_to_id);
+    const assigned = technicianOptions.find((item) => item.value === values.assigned_to_user_id);
 
     await onCreateTicket(selectedReport.id, {
       ...values,
+      assigned_to_id: values.assigned_to_user_id,
       assigned_to_name: assigned?.label || 'Unassigned',
     });
 
@@ -492,7 +493,7 @@ const KioskFieldReportsAdmin = ({
         onOk={handleCreateTicket}
       >
         <Form form={ticketForm} layout="vertical">
-          <Form.Item name="assigned_to_id" label="Assign Technician" rules={[{ required: true, message: 'Please assign a technician.' }]}> 
+          <Form.Item name="assigned_to_user_id" label="Assign Technician" rules={[{ required: true, message: 'Please assign a technician.' }]}> 
             <Select
               showSearch
               optionFilterProp="label"

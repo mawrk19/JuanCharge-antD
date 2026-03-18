@@ -6,6 +6,7 @@ const ROLE_ID_MAP = {
   1: 'super_admin',
   2: 'lgu_admin',
   3: 'lgu_staff',
+  5: 'lgu_technician',
   4: 'kiosk_user',
 };
 
@@ -14,11 +15,14 @@ const ROLE_ALIAS_MAP = {
   superadmin: 'super_admin',
   lgu: 'lgu_staff',
   lgu_user: 'lgu_staff',
+  technician: 'lgu_technician',
+  lgu_technician: 'lgu_technician',
+  lgutechnician: 'lgu_technician',
   patron: 'kiosk_user',
   kiosk: 'kiosk_user',
 };
 
-const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff'];
+const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff', 'lgu_technician'];
 
 const normalizeRole = (value) => {
   if (value === null || value === undefined) {
@@ -126,6 +130,10 @@ const getDefaultRouteForRole = (roleLike) => {
   }
 
   if (role === 'lgu_staff') {
+    return '/main/recycling-analytics';
+  }
+
+  if (role === 'lgu_technician') {
     return '/main/recycling-analytics';
   }
 

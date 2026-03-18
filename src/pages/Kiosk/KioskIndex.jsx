@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Table, Button, Input, Space, Card, Tag, Tabs, message, Popconfirm } from 'antd';
+import { Table, Button, Input, Space, Card, Tag, Tabs, message, Popconfirm, Modal, Form } from 'antd';
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getKiosks, createKiosk, updateKiosk, deleteKiosk } from './kiosk.api';
 import { getLguUsers } from '../LguUsers/lguUser.api';
@@ -28,8 +28,13 @@ const KioskIndex = () => {
   const currentRole = getStoredRole();
   const isLguAdmin = currentRole === 'lgu_admin';
   const isLguStaff = currentRole === 'lgu_staff';
+  const isLguTechnician = currentRole === 'lgu_technician';
+  const isFieldOpsRole = isLguStaff || isLguTechnician;
   const canManageKiosks = currentRole === 'super_admin' || isLguAdmin;
-  const [activeTab, setActiveTab] = useState(isLguStaff ? 'field-reports' : 'directory');
+  const [activeTab, setActiveTab] = useState(isFieldOpsRole ? 'field-reports' : 'directory');
+  const [ticketModalOpen, setTicketModalOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [ticketCloseForm] = Form.useForm();
 
   const currentUser = useMemo(() => {
     try {
@@ -103,7 +108,7 @@ const KioskIndex = () => {
     return (users || [])
       .filter((user) => {
         const slug = String(user?.role_slug || user?.role?.slug || '').toLowerCase();
-        return ['lgu_staff', 'lgu_technician', 'technician'].includes(slug);
+        return ['lgu_technician', 'technician'].includes(slug);
       })
       .map((user) => ({
         value: user.id,
@@ -276,7 +281,12 @@ const KioskIndex = () => {
   };
 
   const handleCreateTicket = async (reportId, ticketPayload) => {
-    await createTicketFromReport(reportId, ticketPayload);
+    const normalizedPayload = {
+      ...ticketPayload,
+      assigned_to_user_id: ticketPayload.assigned_to_user_id || ticketPayload.assigned_to_id || null,
+    };
+
+    await createTicketFromReport(reportId, normalizedPayload);
     await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
     await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports-kpi', currentMonth] });
   };
@@ -294,6 +304,118 @@ const KioskIndex = () => {
     await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
     await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports-kpi', currentMonth] });
   };
+
+  const technicianTickets = useMemo(() => {
+    const currentUserId = currentUser?.id;
+    if (!currentUserId || !isLguTechnician) return [];
+
+    return (reports || [])
+      .filter((report) => {
+        const assignedId = report?.ticket?.assigned_to_user_id || report?.ticket?.assigned_to_id;
+        return Boolean(report?.ticket?.id) && Number(assignedId) === Number(currentUserId);
+      })
+      .map((report) => {
+        const kiosk = (data || []).find((item) => item.id === report.kiosk_id);
+        return {
+          key: report.ticket.id,
+          ticket_id: report.ticket.id,
+          report_id: report.id,
+          kiosk_code: report.kiosk_code || kiosk?.kiosk_code || `Kiosk #${report.kiosk_id}`,
+          priority: report.ticket.priority || 'medium',
+          status: report.ticket.status || 'open',
+          issue_summary: report.ticket.issue_summary || report.notes || '-',
+          assigned_to_name: report.ticket.assigned_to_name || 'Assigned Technician',
+          created_at: report.ticket.created_at || report.submitted_at,
+          closed_at: report.ticket.closed_at,
+        };
+      })
+      .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  }, [reports, data, currentUser, isLguTechnician]);
+
+  const openTechnicianCloseModal = (ticket) => {
+    setSelectedTicket(ticket);
+    ticketCloseForm.setFieldsValue({
+      technician_follow_up: '',
+      resolution_log: '',
+    });
+    setTicketModalOpen(true);
+  };
+
+  const handleCloseTechnicianTicket = async () => {
+    if (!selectedTicket?.ticket_id) return;
+
+    try {
+      const values = await ticketCloseForm.validateFields();
+      await closeTicket(selectedTicket.ticket_id, values);
+      message.success('Ticket closed successfully.');
+      setTicketModalOpen(false);
+      setSelectedTicket(null);
+      ticketCloseForm.resetFields();
+      await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports'] });
+      await queryClient.invalidateQueries({ queryKey: ['kiosk-field-reports-kpi', currentMonth] });
+    } catch (error) {
+      if (error?.errorFields) return;
+      console.error(error);
+      message.error('Failed to close ticket.');
+    }
+  };
+
+  const technicianTicketColumns = [
+    {
+      title: 'Ticket ID',
+      dataIndex: 'ticket_id',
+      key: 'ticket_id',
+      render: (value) => <span className="font-semibold text-slate-700">#{value}</span>,
+    },
+    {
+      title: 'Kiosk',
+      dataIndex: 'kiosk_code',
+      key: 'kiosk_code',
+    },
+    {
+      title: 'Priority',
+      dataIndex: 'priority',
+      key: 'priority',
+      render: (value) => {
+        const color = value === 'high' ? 'red' : value === 'low' ? 'blue' : 'orange';
+        return <Tag color={color}>{String(value || 'medium').toUpperCase()}</Tag>;
+      },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (value) => (
+        <Tag color={String(value).toLowerCase() === 'closed' ? 'green' : 'gold'}>
+          {String(value || 'open').toUpperCase()}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Issue Summary',
+      dataIndex: 'issue_summary',
+      key: 'issue_summary',
+    },
+    {
+      title: 'Created',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (value) => (value ? new Date(value).toLocaleString() : '-'),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        record.status === 'closed' ? (
+          <Tag color="green">Closed</Tag>
+        ) : (
+          <Button size="small" onClick={() => openTechnicianCloseModal(record)}>
+            Close Ticket
+          </Button>
+        )
+      ),
+    },
+  ];
 
   const columns = [
     { 
@@ -454,6 +576,14 @@ const KioskIndex = () => {
               currentUser={currentUser}
               onSubmitReport={handleSubmitFieldReport}
             />
+          ) : isLguTechnician ? (
+            <KioskFieldReportForm
+              kiosks={data}
+              scheduleOptions={scheduleOptions}
+              currentRole={currentRole}
+              currentUser={currentUser}
+              onSubmitReport={handleSubmitFieldReport}
+            />
           ) : (
             <KioskFieldReportsAdmin
               reports={reports}
@@ -471,6 +601,32 @@ const KioskIndex = () => {
         </>
       ),
     },
+    ...(isLguTechnician
+      ? [
+          {
+            key: 'technician-tickets',
+            label: 'Assigned Tickets',
+            children: (
+              <>
+                <div className="mb-6">
+                  <h1 className="text-2xl font-bold">Assigned Maintenance Tickets</h1>
+                  <p className="text-gray-500">Review and close tickets assigned by admins.</p>
+                </div>
+                <Card>
+                  <Table
+                    columns={technicianTicketColumns}
+                    dataSource={technicianTickets}
+                    rowKey="ticket_id"
+                    pagination={{ pageSize: 8, showSizeChanger: true }}
+                    scroll={{ x: 980 }}
+                    locale={{ emptyText: 'No tickets assigned yet.' }}
+                  />
+                </Card>
+              </>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -490,6 +646,31 @@ const KioskIndex = () => {
         currentUserLguId={currentUserLguId}
         currentUserLguName={currentUserLguName}
       />
+
+      <Modal
+        title="Close Assigned Ticket"
+        open={ticketModalOpen}
+        onCancel={() => {
+          setTicketModalOpen(false);
+          setSelectedTicket(null);
+          ticketCloseForm.resetFields();
+        }}
+        onOk={handleCloseTechnicianTicket}
+        okText="Close Ticket"
+      >
+        <Form form={ticketCloseForm} layout="vertical">
+          <Form.Item name="technician_follow_up" label="Technician Follow-up">
+            <Input.TextArea rows={3} placeholder="Technician notes after onsite work..." />
+          </Form.Item>
+          <Form.Item
+            name="resolution_log"
+            label="Resolution Log"
+            rules={[{ required: true, message: 'Please add resolution details.' }]}
+          >
+            <Input.TextArea rows={4} placeholder="Describe findings, repairs, and final condition..." />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

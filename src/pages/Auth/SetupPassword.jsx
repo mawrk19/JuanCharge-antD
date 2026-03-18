@@ -31,7 +31,7 @@ const SetupPassword = () => {
 
     try {
       setLoading(true);
-      await api.post('/api/lgu/set-password', { email, password, password_confirmation });
+      await api.post('/lgu/set-password', { email, password, password_confirmation });
       message.success('Password set! You can now log in.');
       navigate('/login');
     } catch (e) {

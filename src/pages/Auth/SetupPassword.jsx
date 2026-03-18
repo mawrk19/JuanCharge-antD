@@ -24,9 +24,14 @@ const SetupPassword = () => {
   }, []);
 
   const onFinish = async ({ password, password_confirmation }) => {
+    if (!email) {
+      message.error('Missing email in setup link. Please request a new invitation link.');
+      return;
+    }
+
     try {
       setLoading(true);
-      await api.post('/auth/setup-password', { email, password, password_confirmation });
+      await api.post('/api/lgu/set-password', { email, password, password_confirmation });
       message.success('Password set! You can now log in.');
       navigate('/login');
     } catch (e) {

@@ -255,7 +255,8 @@ const MainLayout = () => {
       label: (
         <div className="px-1 py-1">
           <div className="font-bold text-slate-800">{userName}</div>
-          <div className="text-xs text-slate-500">{userEmail || getRoleLabel()}</div>
+          <div className="text-xs text-slate-500">{getRoleLabel()}</div>
+          {userEmail ? <div className="text-xs text-slate-400">{userEmail}</div> : null}
         </div>
       ),
     },

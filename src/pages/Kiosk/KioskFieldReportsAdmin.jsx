@@ -438,7 +438,7 @@ const KioskFieldReportsAdmin = ({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <Text type="secondary">Service Reliability</Text>
           <div className="text-2xl font-semibold text-green-700">{serviceReliability.toFixed(1)}%</div>
@@ -454,7 +454,7 @@ const KioskFieldReportsAdmin = ({
           <div className="text-2xl font-semibold text-red-600">{missedCollectionIds.size}</div>
           <div className="text-xs text-slate-500">Kiosks with no report by Tuesday 8:00 AM cutoff</div>
         </Card>
-      </div>
+      </div> */}
 
       <Card title="Field Reports Review">
         <Table

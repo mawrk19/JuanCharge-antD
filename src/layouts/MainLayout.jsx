@@ -230,9 +230,9 @@ const MainLayout = () => {
     const items = [
       { key: '/main/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
       { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
-      { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
-      { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' },
-      { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' },
+      { key: '/main/lgus', icon: <BankOutlined />, label: 'Local Government Unit' }, //Lgu
+      { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Admin' },//LguUsers
+      // { key: '/main/kiosks', icon: <ThunderboltOutlined />, label: 'Kiosks' }, hides the kiosk menu for super admin
       { key: '/main/kiosks-users', icon: <UserOutlined />, label: 'Patrons' },
       { key: '/main/audit-trails', icon: <FileSearchOutlined />, label: 'Audit Trail' },
     ];

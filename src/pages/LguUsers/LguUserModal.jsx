@@ -29,7 +29,7 @@ const LguUserModal = ({
 		if (!open) return;
 
 		const defaults = { 
-			role_slug: 'lgu_staff',
+			role_slug: 'lgu_admin',
 		};
 
 		// If lgu_admin, always lock to their assigned LGU
@@ -51,7 +51,10 @@ const LguUserModal = ({
 	const handleOk = async () => {
 		try {
 			const values = await form.validateFields();
-			await onSubmit(values);
+			await onSubmit({
+				...values,
+				role_slug: 'lgu_admin',
+			});
 			form.resetFields();
 		} catch (err) {
 			console.error(err);
@@ -149,6 +152,7 @@ const LguUserModal = ({
 					<Select
 						size="large"
 						placeholder="Select role"
+						disabled
 						options={[
 							{
 								value: 'lgu_admin',
@@ -156,24 +160,6 @@ const LguUserModal = ({
 									<div>
 										<span className="font-medium">LGU Admin</span>
 										<p className="text-xs text-gray-400 m-0">Can create staff and manage kiosks</p>
-									</div>
-								),
-							},
-							{
-								value: 'lgu_staff',
-								label: (
-									<div>
-										<span className="font-medium">LGU Staff</span>
-										<p className="text-xs text-gray-400 m-0">Can view analytics and manage kiosks</p>
-									</div>
-								),
-							},
-							{
-								value: 'lgu_technician',
-								label: (
-									<div>
-										<span className="font-medium">LGU Technician</span>
-										<p className="text-xs text-gray-400 m-0">Can handle kiosk maintenance tickets</p>
 									</div>
 								),
 							},

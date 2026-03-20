@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
-import { Form, Input, Modal, message } from 'antd';
+import { Form, Input, Modal, Select, message, Tag } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { getLgus } from '../Lgu/lgu.api';
 
 const LguUserModal = ({
 	open,
@@ -8,27 +10,51 @@ const LguUserModal = ({
 	loading,
 	mode = 'create',
 	initialValues = null,
+	currentUserRole = 'super_admin',
+	currentUserLguId = null,
+	currentUserLguName = null,
 }) => {
 	const [form] = Form.useForm();
+	const isLguAdmin = currentUserRole === 'lgu_admin';
+
+	const { data: lguList = [], isLoading: lgusLoading } = useQuery({
+		queryKey: ['lgus'],
+		queryFn: getLgus,
+		select: (res) => (Array.isArray(res.data) ? res.data : res.data?.data || []),
+	});
+
+	const lguOptions = lguList.map((lgu) => ({ label: lgu.name, value: lgu.id }));
 
 	useEffect(() => {
 		if (!open) return;
 
-		const defaults = {};
+		const defaults = { 
+			role_slug: 'lgu_admin',
+		};
+
+		// If lgu_admin, always lock to their assigned LGU
+		if (isLguAdmin && currentUserLguId) {
+			defaults.lgu_id = currentUserLguId;
+		}
+
 		const mappedValues = initialValues
 			? {
 					...defaults,
 					...initialValues,
+					lgu_id: initialValues?.lgu_id || initialValues?.lgu?.id || defaults.lgu_id,
 				}
 			: defaults;
 
 		form.setFieldsValue(mappedValues);
-	}, [open, initialValues, form]);
+	}, [open, initialValues, form, isLguAdmin, currentUserLguId, lguList.length]);
 
 	const handleOk = async () => {
 		try {
 			const values = await form.validateFields();
-			await onSubmit(values);
+			await onSubmit({
+				...values,
+				role_slug: 'lgu_admin',
+			});
 			form.resetFields();
 		} catch (err) {
 			console.error(err);
@@ -86,6 +112,59 @@ const LguUserModal = ({
 					]}
 				>
 					<Input size="large" placeholder="name@example.com" />
+				</Form.Item>
+
+
+			{isLguAdmin ? (
+				<Form.Item
+					name="lgu_id"
+					label="Assigned LGU"
+					rules={[{ required: true, message: 'Please select an LGU' }]}
+				>
+					<div className="flex items-center gap-2 py-2">
+						<Tag color="green" className="m-0">
+							{currentUserLguName || 'Loading...'}
+						</Tag>
+						<span className="text-sm text-slate-500">(Locked to your LGU)</span>
+					</div>
+				</Form.Item>
+			) : (
+				<Form.Item
+					name="lgu_id"
+					label="Assigned LGU"
+					rules={[{ required: true, message: 'Please select an LGU' }]}
+				>
+					<Select
+						size="large"
+						placeholder="Select LGU"
+						loading={lgusLoading}
+						options={lguOptions}
+					/>
+				</Form.Item>
+			)}
+
+
+				<Form.Item
+					name="role_slug"
+					label="Role"
+					rules={[{ required: true, message: 'Please select a role' }]}
+				>
+					<Select
+						size="large"
+						placeholder="Select role"
+						disabled
+						options={[
+							{
+								value: 'lgu_admin',
+								label: (
+									<div>
+										<span className="font-medium">LGU Admin</span>
+										<p className="text-xs text-gray-400 m-0">Can create staff and manage kiosks</p>
+									</div>
+								),
+							},
+						]}
+					/>
 				</Form.Item>
 			</Form>
 		</Modal>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Form, Input, Select, message } from 'antd';
+import { Modal, Form, Input, Select, message, Tag } from 'antd';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -22,23 +22,58 @@ const MapClickHandler = ({ onLocationSelect }) => {
   return null;
 };
 
-const KioskModal = ({ open, onCancel, onSubmit, loading, lguOptions, mode = 'create', initialValues = null }) => {
+const KioskModal = ({
+  open,
+  onCancel,
+  onSubmit,
+  loading,
+  lguOptions,
+  scheduleOptions = [],
+  mode = 'create',
+  initialValues = null,
+  currentUserRole = 'super_admin',
+  currentUserLguId = null,
+  currentUserLguName = null,
+}) => {
   const [form] = Form.useForm();
+  const isLguAdmin = currentUserRole === 'lgu_admin';
   const watchedLocation = Form.useWatch('location', form);
+  const watchedLguId = Form.useWatch('lgu_id', form);
   const [coordinates, setCoordinates] = useState(null);
   const [mapCenter, setMapCenter] = useState([14.5995, 120.9842]); // Default to Manila
+
+  const filteredScheduleOptions = (scheduleOptions || []).filter((schedule) => {
+    if (!watchedLguId || !schedule?.lgu_id) {
+      return true;
+    }
+
+    return Number(schedule.lgu_id) === Number(watchedLguId);
+  });
 
   useEffect(() => {
     if (!open) return;
 
     const defaultValues = { status: 'active' };
-    form.setFieldsValue(initialValues ? { ...defaultValues, ...initialValues } : defaultValues);
+
+    if (isLguAdmin && currentUserLguId) {
+      defaultValues.lgu_id = currentUserLguId;
+    }
+
+    const mappedValues = initialValues
+      ? {
+          ...defaultValues,
+          ...initialValues,
+          lgu_id: initialValues?.lgu_id || initialValues?.lgu?.id || defaultValues.lgu_id,
+        }
+      : defaultValues;
+
+    form.setFieldsValue(mappedValues);
 
     if (!initialValues?.location) {
       setCoordinates(null);
       setMapCenter([14.5995, 120.9842]);
     }
-  }, [open, initialValues, form]);
+  }, [open, initialValues, form, isLguAdmin, currentUserLguId, lguOptions.length]);
 
   useEffect(() => {
     if (!watchedLocation) {
@@ -152,21 +187,53 @@ const KioskModal = ({ open, onCancel, onSubmit, loading, lguOptions, mode = 'cre
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {isLguAdmin ? (
+            <Form.Item
+              name="lgu_id"
+              label="Select LGU"
+              rules={[{ required: true, message: 'Please select an LGU!' }]}
+            >
+              <div className="flex items-center gap-2 py-2">
+                <Tag color="green" className="m-0">
+                  {currentUserLguName || 'Loading...'}
+                </Tag>
+                <span className="text-sm text-slate-500">(Locked to your LGU)</span>
+              </div>
+            </Form.Item>
+          ) : (
+            <Form.Item
+              name="lgu_id"
+              label="Select LGU"
+              rules={[{ required: true, message: 'Please select an LGU!' }]}
+            >
+              <Select
+                size="large"
+                placeholder="Choose an LGU"
+                options={(lguOptions || []).map((lgu) => ({
+                  label: lgu.name,
+                  value: lgu.id,
+                }))}
+              />
+            </Form.Item>
+          )}
+
           <Form.Item
-            name="lgu_id"
-            label="Select LGU"
-            rules={[{ required: true, message: 'Please select an LGU!' }]}
+            name="collection_schedule_id"
+            label="Collection Schedule"
           >
             <Select
+              allowClear
               size="large"
-              placeholder="Choose an LGU"
-              options={(lguOptions || []).map((lgu) => ({
-                label: lgu.name,
-                value: lgu.id,
+              placeholder="Select schedule"
+              options={filteredScheduleOptions.map((schedule) => ({
+                label: schedule.name,
+                value: schedule.id,
               }))}
             />
           </Form.Item>
+        </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Form.Item
             name="status"
             label="Status"

@@ -3,6 +3,7 @@ import { Form, Input, Button, Checkbox, message } from 'antd';
 import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { getDefaultRouteForRole, persistAuthSession } from '../../services/authStorage';
 // import useAuthStore from '../../store/useAuthStore'; // Auth Store (Next milestone)
 
 const Login = () => {
@@ -26,25 +27,15 @@ const Login = () => {
         throw new Error("Authentication failed: Token not received");
       }
 
-      // Store in localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('user_type', user.user_type);
+      // Store token/user/normalized role in localStorage.
+      const role = persistAuthSession(token, user);
       
       // Update global store (stubbed for now)
       // login(user, token);
 
       message.success('Welcome back!');
 
-      // Role based redirection
-      const userType = user.user_type ? user.user_type.toLowerCase() : null;
-      if (userType === 'patron' || userType === 'kiosk_user') {
-        navigate('/patron');
-      } else if (userType === 'lgu' || userType === 'lgu_user') {
-        navigate('/main/users');
-      } else {
-        navigate('/main/dashboard'); // Admin fallback
-      }
+      navigate(getDefaultRouteForRole(role));
 
     } catch (e) {
       let errorMessage = 'Login failed. Please check your credentials.';

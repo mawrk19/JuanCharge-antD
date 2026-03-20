@@ -4,11 +4,56 @@ import { Table, Button, Input, Space, Card, Tag, Popconfirm, message } from 'ant
 import { PlusOutlined, SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { getLguUsers, createLguUser, updateLguUser, deleteLguUser } from './lguUser.api';
 import LguUserModal from './LguUserModal';
+import { getStoredRole, USER_KEY } from '../../services/authStorage';
 
 const LguUserIndex = () => {
   const queryClient = useQueryClient();
+  const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const currentRole = getStoredRole();
+  const isLguAdmin = currentRole === 'lgu_admin';
+  const isSuperAdmin = currentRole === 'super_admin';
+
+  const currentUser = useMemo(() => {
+    try {
+      const rawUser = localStorage.getItem(USER_KEY);
+      return rawUser ? JSON.parse(rawUser) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const { data: lguList = [] } = useQuery({
+    queryKey: ['lgus-for-modal'],
+    queryFn: async () => {
+      const res = await getLguUsers();
+      return res.data?.data || res.data || [];
+    },
+    select: (data) => {
+      const allUsers = Array.isArray(data) ? data : data?.data || [];
+      const map = new Map();
+      allUsers.forEach((user) => {
+        if (user?.lgu?.id && user?.lgu?.name) {
+          map.set(user.lgu.id, user.lgu);
+        }
+      });
+      return Array.from(map.values());
+    },
+  });
+
+  const currentUserLguId = useMemo(() => {
+    if (isLguAdmin && currentUser?.lgu_id) {
+      return currentUser.lgu_id;
+    }
+    return null;
+  }, [currentUser, isLguAdmin]);
+
+  const currentUserLguName = useMemo(() => {
+    if (!currentUserLguId) return null;
+    return lguList.find((lgu) => lgu.id === currentUserLguId)?.name;
+  }, [currentUserLguId, lguList]);
 
   const { data = [], isLoading } = useQuery({
     queryKey: ['lgu-users'],
@@ -30,15 +75,23 @@ const LguUserIndex = () => {
 
   const submitLoading = createUserMutation.isPending || updateUserMutation.isPending;
 
-  const lguOptions = useMemo(() => {
-    const map = new Map();
-    data.forEach((user) => {
-      if (user?.lgu?.id && user?.lgu?.name) {
-        map.set(user.lgu.id, user.lgu.name);
-      }
+  const filteredData = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return data;
+
+    return data.filter((item) => {
+      const fields = [
+        item.name,
+        item.first_name,
+        item.last_name,
+        item.email,
+        item.status,
+        item?.lgu?.name,
+      ];
+
+      return fields.some((value) => String(value || '').toLowerCase().includes(term));
     });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [data]);
+  }, [data, searchTerm]);
 
   const handleAdd = () => {
     setSelectedUser(null);
@@ -68,11 +121,16 @@ const LguUserIndex = () => {
 
   const handleModalSubmit = async (values) => {
     try {
+      const payload = {
+        ...values,
+        ...(isLguAdmin && currentUserLguId ? { lgu_id: currentUserLguId } : {}),
+      };
+
       if (selectedUser?.id) {
-        await updateUserMutation.mutateAsync({ id: selectedUser.id, payload: values });
+        await updateUserMutation.mutateAsync({ id: selectedUser.id, payload });
         message.success('LGU user updated successfully');
       } else {
-        await createUserMutation.mutateAsync(values);
+        await createUserMutation.mutateAsync(payload);
         message.success('LGU user created successfully');
       }
 
@@ -81,7 +139,14 @@ const LguUserIndex = () => {
       await queryClient.invalidateQueries({ queryKey: ['lgu-users'] });
     } catch (err) {
       console.error(err);
-      message.error(selectedUser?.id ? 'Failed to update LGU user' : 'Failed to create LGU user');
+      const apiErrors = err.response?.data?.errors;
+      if (apiErrors && typeof apiErrors === 'object') {
+        // Show each validation message (e.g. "email: The email has already been taken.")
+        Object.values(apiErrors).flat().forEach((msg) => message.error(msg));
+      } else {
+        const fallback = err.response?.data?.message;
+        message.error(fallback || (selectedUser?.id ? 'Failed to update LGU user' : 'Failed to create LGU user'));
+      }
       throw err;
     }
   };
@@ -148,14 +213,20 @@ const LguUserIndex = () => {
   ];
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 sm:p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">LGU User Management</h1>
           <p className="text-gray-500">Manage LGU users, roles, and permissions</p>
         </div>
-        <div className="flex gap-2">
-          <Input prefix={<SearchOutlined />} placeholder="Search users..." className="w-64" />
+        <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
+          <Input
+            prefix={<SearchOutlined />}
+            placeholder="Search users..."
+            className="w-full sm:w-64"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
           <Button type="primary" icon={<PlusOutlined />} className="bg-green-600" onClick={handleAdd}>Add User</Button>
         </div>
       </div>
@@ -163,7 +234,7 @@ const LguUserIndex = () => {
       <Card>
         <Table 
           columns={columns} 
-          dataSource={data} 
+          dataSource={filteredData} 
           loading={isLoading || deleteUserMutation.isPending} 
           rowKey="id" 
           pagination={{
@@ -171,6 +242,7 @@ const LguUserIndex = () => {
             showSizeChanger: true,
             pageSizeOptions: ['5', '10', '20', '50', '100'],
           }}
+          scroll={{ x: 960 }}
         />
       </Card>
 
@@ -179,9 +251,12 @@ const LguUserIndex = () => {
         onCancel={handleCancel}
         onSubmit={handleModalSubmit}
         loading={submitLoading}
-        lguOptions={lguOptions}
         mode={selectedUser ? 'edit' : 'create'}
         initialValues={selectedUser}
+        currentUserRole={currentRole}
+        currentUserLguId={currentUserLguId}
+        currentUserLguName={currentUserLguName}
+        isSuperAdmin={isSuperAdmin}
       />
     </div>
   );

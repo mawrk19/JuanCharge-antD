@@ -10,6 +10,26 @@ const getRecyclingAnalytics = (days) => api.get('/admin/analytics/recycling', { 
 
 const parseCount = (value) => Number(value || 0);
 
+const normalizeMaterialKey = (value) => {
+  const raw = String(value || 'unknown').toLowerCase().replace(/[_\s]+/g, '');
+
+  if (raw.includes('plastic') || raw.includes('pet')) return 'plastic';
+  if (raw.includes('aluminum') || raw.includes('aluminium')) return 'aluminum_cans';
+  if (raw.includes('tin')) return 'tin_cans';
+  if (raw.includes('glass')) return 'glass';
+  if (raw.includes('mixed')) return 'mixed';
+  return 'other';
+};
+
+const MATERIAL_META = {
+  plastic: { material: 'Plastic Bottles', color: '#22c55e' },
+  aluminum_cans: { material: 'Aluminum Cans', color: '#06b6d4' },
+  tin_cans: { material: 'Tin Cans', color: '#f59e0b' },
+  glass: { material: 'Glass', color: '#8b5cf6' },
+  mixed: { material: 'Mixed', color: '#64748b' },
+  other: { material: 'Other', color: '#ef4444' },
+};
+
 const RecyclingAnalytics = () => {
   const [dateWindow, setDateWindow] = useState(7);
 
@@ -47,21 +67,23 @@ const RecyclingAnalytics = () => {
   const storageRows = useMemo(() => {
     const map = new Map();
     breakdown.forEach((row) => {
-      map.set(String(row.item_type || '').toLowerCase(), parseCount(row.total_count));
+      const key = normalizeMaterialKey(row.item_type);
+      map.set(key, (map.get(key) || 0) + parseCount(row.total_count));
     });
 
-    const plasticBottles = map.get('plastic bottles') ?? map.get('plastic') ?? 0;
-    const aluminumCans = map.get('aluminum cans') ?? map.get('aluminum') ?? map.get('metal') ?? 0;
-    const tinCans = map.get('tin cans') ?? map.get('tin') ?? 0;
+    const orderedKeys = ['plastic', 'aluminum_cans', 'tin_cans', 'glass', 'mixed', 'other'];
 
-    return [
-      { key: 'plastic-bottles', material: 'Plastic Bottles', count: plasticBottles, color: '#22c55e' },
-      { key: 'aluminum-cans', material: 'Aluminum Cans', count: aluminumCans, color: '#06b6d4' },
-      { key: 'tin-cans', material: 'Tin Cans', count: tinCans, color: '#f59e0b' },
-    ];
+    return orderedKeys
+      .map((key) => ({
+        key,
+        material: MATERIAL_META[key].material,
+        color: MATERIAL_META[key].color,
+        count: map.get(key) || 0,
+      }))
+      .filter((row) => row.count > 0);
   }, [breakdown]);
 
-  const storageTotal = storageRows.reduce((sum, row) => sum + row.count, 0);
+  const storageTotal = Number(analytics.breakdown_total_items || storageRows.reduce((sum, row) => sum + row.count, 0));
 
   const storageWithPercent = storageRows.map((row) => ({
     ...row,
@@ -141,7 +163,7 @@ const RecyclingAnalytics = () => {
 
       <Row gutter={[24, 24]}>
         <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '20px 24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Items Recycled</Text>
               <DatabaseOutlined className="text-slate-400" />
@@ -151,7 +173,7 @@ const RecyclingAnalytics = () => {
         </Col>
 
         <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '20px 24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Top Recycled Item</Text>
               <TrophyOutlined className="text-slate-400" />
@@ -162,7 +184,7 @@ const RecyclingAnalytics = () => {
         </Col>
 
         <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '20px 24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Recycling Velocity / Day</Text>
               <FireOutlined className="text-slate-400" />
@@ -175,7 +197,7 @@ const RecyclingAnalytics = () => {
 
       <Row gutter={[24, 24]}>
         <Col xs={24} lg={10}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full" bodyStyle={{ padding: '24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">Storage Distribution</span>
               <Tag className="bg-slate-50 border-slate-200 text-slate-600">{dateWindow} days</Tag>
@@ -206,7 +228,7 @@ const RecyclingAnalytics = () => {
         </Col>
 
         <Col xs={24} lg={14}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" bodyStyle={{ padding: '24px' }}>
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">Itemized Breakdown</span>
               <Tag className="bg-green-50 border-green-200 text-green-700">Collected</Tag>
@@ -217,6 +239,7 @@ const RecyclingAnalytics = () => {
               columns={columns}
               dataSource={tableData}
               pagination={false}
+              scroll={{ x: 760 }}
               locale={{ emptyText: 'No item breakdown available' }}
             />
           </Card>

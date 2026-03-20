@@ -17,7 +17,7 @@ import KioskIndex from '../pages/Kiosk/KioskIndex'
 import LguIndex from '../pages/Lgu/LguIndex'
 import RecyclingAnalytics from '../pages/RecyclingAnalytics/RecyclingAnalytics'
 import MapView from '../pages/Map/MapView'
-import PatronIndex from '../pages/Petron/PatronIndex'
+import PatronIndex from '../pages/Patron/PatronIndex'
 import AuditTrailIndex from '../pages/AuditTrail/AuditTrailIndex'
 
 const MANAGEMENT_ROLES = ['super_admin', 'lgu_admin', 'lgu_staff', 'lgu_technician'];

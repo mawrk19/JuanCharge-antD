@@ -3,18 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, Row, Col, Typography, Tag, Table } from 'antd';
 import {
   UserOutlined,
-  ThunderboltOutlined,
   DatabaseOutlined,
-  RetweetOutlined
+  RetweetOutlined,
+  TrophyOutlined,
+  FireOutlined,
 } from '@ant-design/icons';
 import api from '../../services/api';
-
 const { Title, Text } = Typography;
-
 const getDashboardOverview = () => api.get('/dashboard/overview');
-const getRecentRecycling = () => api.get('/dashboard/recycling?limit=5');
 const getRecyclingAnalytics = (days = 7) => api.get('/admin/analytics/recycling', { params: { days } });
-
 const normalizeMaterialKey = (value) => {
   const raw = String(value || 'unknown').toLowerCase().replace(/[_\s]+/g, '');
 
@@ -35,46 +32,55 @@ const MATERIAL_LABELS = {
   other: 'Other',
 };
 
+const MATERIAL_COLORS = {
+  plastic: '#22c55e',
+  tin_cans: '#06b6d4',
+  aluminum_cans: '#f59e0b',
+  glass: '#8b5cf6',
+  mixed: '#ef4444',
+  other: '#64748b',
+};
+
 const Dashboard = () => {
-  const { data: overview } = useQuery({
+  const dateWindow = 7;
+
+  const { data: overview = {}, isLoading: overviewLoading } = useQuery({
     queryKey: ['dashboard-overview'],
     queryFn: getDashboardOverview,
     select: (res) => res.data?.data || {},
   });
 
-  const { data: recentRecycling = [], isLoading: recentRecyclingLoading } = useQuery({
-    queryKey: ['dashboard-recent-recycling', 5],
-    queryFn: getRecentRecycling,
-    select: (res) => (Array.isArray(res.data?.data) ? res.data.data : []),
-  });
-
-  const { data: recyclingAnalytics = {} } = useQuery({
-    queryKey: ['dashboard-recycling-analytics', 7],
-    queryFn: () => getRecyclingAnalytics(7),
+  const { data: recyclingAnalytics = {}, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['dashboard-recycling-analytics', dateWindow],
+    queryFn: () => getRecyclingAnalytics(dateWindow),
     select: (res) => res.data?.data || {},
   });
 
   const totalUsers = overview?.total_users ?? 0;
   const activeKiosks = overview?.kiosks?.active ?? 0;
   const totalKiosks = overview?.kiosks?.total ?? 0;
-  const totalEnergy = overview?.charging?.total_energy_kwh ?? 0;
   const recyclingWeight = overview?.recycling?.total_weight_kg ?? 0;
-  const recyclingDrops = overview?.recycling?.total_deposits ?? 0;
 
   const pointsInCirculation = Number(overview?.recycling?.accumulated_points ?? 0);
   const co2Saved = Number(overview?.co2_saved_kg ?? 0);
+  const breakdown = useMemo(
+    () => (Array.isArray(recyclingAnalytics?.breakdown) ? recyclingAnalytics.breakdown : []),
+    [recyclingAnalytics],
+  );
+  const trends = useMemo(
+    () => (Array.isArray(recyclingAnalytics?.trends) ? recyclingAnalytics.trends : []),
+    [recyclingAnalytics],
+  );
 
   const materialBreakdown = useMemo(() => {
     const map = new Map();
-
-    const breakdown = Array.isArray(recyclingAnalytics?.breakdown) ? recyclingAnalytics.breakdown : [];
 
     breakdown.forEach((item) => {
       const key = normalizeMaterialKey(item.item_type);
       const count = Number(item.total_count || 0);
       map.set(key, (map.get(key) || 0) + count);
     });
-
+   
     const rows = Array.from(map.entries()).map(([type, count]) => ({
       type,
       label: MATERIAL_LABELS[type] || 'Other',
@@ -87,9 +93,10 @@ const Dashboard = () => {
       .sort((a, b) => b.count - a.count)
       .map((row) => ({
         ...row,
+        color: MATERIAL_COLORS[row.type] || MATERIAL_COLORS.other,
         percent: totalCount > 0 ? (row.count / totalCount) * 100 : 0,
       }));
-  }, [recyclingAnalytics]);
+  }, [breakdown]);
 
   const totalMaterialItems = useMemo(() => {
     const fromBreakdown = Number(recyclingAnalytics?.breakdown_total_items || 0);
@@ -99,21 +106,24 @@ const Dashboard = () => {
     return materialBreakdown.reduce((sum, row) => sum + Number(row.count || 0), 0);
   }, [recyclingAnalytics, materialBreakdown]);
 
-  const pointsTrend = useMemo(() => {
-    const rows = [...recentRecycling].reverse();
-    const maxPoints = rows.reduce((max, row) => Math.max(max, Number(row.points_earned || 0)), 0);
+  const topItem = useMemo(() => {
+    if (!materialBreakdown.length) return { label: 'No data', count: 0 };
+    const top = materialBreakdown[0];
+    return { label: String(top.label || 'Unknown'), count: Number(top.count || 0) };
+  }, [materialBreakdown]);
 
-    return rows.map((row) => ({
-      id: row.id,
-      label: new Date(row.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-      points: Number(row.points_earned || 0),
-      height: maxPoints > 0 ? Math.max(12, (Number(row.points_earned || 0) / maxPoints) * 120) : 12,
-    }));
-  }, [recentRecycling]);
+  const recyclingVelocity = useMemo(() => {
+    if (!trends.length) return 0;
+
+    const totalFromTrends = trends.reduce((sum, row) => {
+      const value = row.count ?? row.total_count ?? row.total_items;
+      return sum + Number(value || 0);
+    }, 0);
+
+    return trends.length > 0 ? totalFromTrends / trends.length : 0;
+  }, [trends]);
 
   const materialChartData = useMemo(() => {
-    const colors = ['#22c55e', '#06b6d4', '#f59e0b', '#8b5cf6', '#ef4444', '#64748b'];
-
     if (materialBreakdown.length === 0) {
       return {
         conic: 'conic-gradient(#e2e8f0 0% 100%)',
@@ -122,8 +132,8 @@ const Dashboard = () => {
     }
 
     let start = 0;
-    const rows = materialBreakdown.map((row, index) => {
-      const color = colors[index % colors.length];
+    const rows = materialBreakdown.map((row) => {
+      const color = row.color;
       const end = start + row.percent;
       const segment = `${color} ${start}% ${end}%`;
       start = end;
@@ -136,64 +146,62 @@ const Dashboard = () => {
     };
   }, [materialBreakdown]);
 
-  const transactionColumns = [
-    {
-      title: 'USER',
-      dataIndex: 'user_name',
-      key: 'user_name',
-      render: (text) => <span className="font-medium text-slate-700">{text || '-'}</span>,
-    },
-    {
-      title: 'KIOSK',
-      dataIndex: 'kiosk',
-      key: 'kiosk',
-      render: (text) => text || 'N/A',
-    },
-    {
-      title: 'ITEM',
-      dataIndex: 'item_type',
-      key: 'item_type',
-      render: (text) => <Tag className="uppercase">{text || 'unknown'}</Tag>,
-    },
-    {
-      title: 'WEIGHT',
-      dataIndex: 'weight_kg',
-      key: 'weight_kg',
-      align: 'right',
-      render: (value) => `${Number(value || 0).toFixed(2)} kg`,
-    },
-    {
-      title: 'POINTS',
-      dataIndex: 'points_earned',
-      key: 'points_earned',
-      align: 'right',
-      render: (value) => <span className="text-green-600 font-semibold">+{Number(value || 0)} pts</span>,
-    },
-    {
-      title: 'DATE',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (value) => new Date(value).toLocaleString(),
-    },
-  ];
+  // const transactionColumns = [
+  //   {
+  //     title: 'USER',
+  //     dataIndex: 'user_name',
+  //     key: 'user_name',
+  //     render: (text) => <span className="font-medium text-slate-700">{text || '-'}</span>,
+  //   },
+  //   {
+  //     title: 'KIOSK',
+  //     dataIndex: 'kiosk',
+  //     key: 'kiosk',
+  //     render: (text) => text || 'N/A',
+  //   },
+  //   {
+  //     title: 'ITEM',
+  //     dataIndex: 'item_type',
+  //     key: 'item_type',
+  //     render: (text) => <Tag className="uppercase">{text || 'unknown'}</Tag>,
+  //   },
+  //   {
+  //     title: 'WEIGHT',
+  //     dataIndex: 'weight_kg',
+  //     key: 'weight_kg',
+  //     align: 'right',
+  //     render: (value) => `${Number(value || 0).toFixed(2)} kg`,
+  //   },
+  //   {
+  //     title: 'POINTS',
+  //     dataIndex: 'points_earned',
+  //     key: 'points_earned',
+  //     align: 'right',
+  //     render: (value) => <span className="text-green-600 font-semibold">+{Number(value || 0)} pts</span>,
+  //   },
+  //   {
+  //     title: 'DATE',
+  //     dataIndex: 'created_at',
+  //     key: 'created_at',
+  //     render: (value) => new Date(value).toLocaleString(),
+  //   },
+  // ];
 
   const statCardProps = {
-    className: "rounded-xl border border-slate-100 shadow-sm",
-    styles: { body: { padding: '20px 24px' } }
+    className: 'rounded-xl border border-slate-100 shadow-sm',
+    styles: { body: { padding: '20px 24px' } },
   };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Header Section */}
       <div>
-        <Title level={3} className="!mb-1 text-slate-800">Dashboard Overview</Title>
-        <Text className="text-slate-500">View your key metrics and activity for today</Text>
+        <Title level={3} className="!mb-1 text-slate-800">Super Admin Dashboard</Title>
+        <Text className="text-slate-500">Overview and recycling analytics in one place.</Text>
       </div>
 
-      {/* Stats Cards Section */}
       <Row gutter={[24, 24]}>
         <Col xs={24} sm={12} lg={6}>
-          <Card {...statCardProps}>
+          <Card loading={overviewLoading} {...statCardProps}>
             <div className="flex justify-between items-start mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Users</Text>
               <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
@@ -205,25 +213,6 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Registered</span>
-              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+14%</span> */}
-            </div>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} lg={6}>
-          <Card {...statCardProps}>
-            <div className="flex justify-between items-start mb-4">
-              <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Active Energy</Text>
-              <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                <ThunderboltOutlined />
-              </div>
-            </div>
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-semibold text-slate-800">{Number(totalEnergy).toFixed(2)}</span>
-            </div>
-            <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
-              <span>Total Consumed</span>
-              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+13%</span> */}
             </div>
           </Card>
         </Col>
@@ -241,7 +230,6 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Network Status</span>
-              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">+4.68%</span> */}
             </div>
           </Card>
         </Col>
@@ -259,17 +247,52 @@ const Dashboard = () => {
             </div>
             <div className="mt-2 text-xs flex items-center gap-1 text-slate-500">
               <span>Total Deposited</span>
-              {/* <span className="text-green-500 font-semibold bg-green-50 px-2 py-0.5 rounded text-[10px] ml-auto">{recyclingDrops} drops</span> */}
             </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} lg={6}>
+          <Card loading={analyticsLoading} {...statCardProps}>
+            <div className="flex justify-between items-center mb-4">
+              <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Recycling Velocity / Day</Text>
+              <FireOutlined className="text-slate-400" />
+            </div>
+            <div className="text-4xl font-semibold text-slate-800">{recyclingVelocity.toFixed(1)}</div>
+            <div className="text-sm text-slate-500 mt-2">Average items collected per day</div>
           </Card>
         </Col>
       </Row>
 
       <Row gutter={[24, 24]}>
-        <Col xs={24} lg={8} className="flex">
+        <Col xs={24} lg={8}>
+          <Card loading={analyticsLoading} {...statCardProps}>
+            <div className="flex items-center justify-between mb-4">
+              <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Top Recycled Item</Text>
+              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                <TrophyOutlined />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-amber-100 bg-gradient-to-r from-amber-50 via-yellow-50 to-white px-3 py-3">
+              <div className="text-sm font-semibold text-slate-800 tracking-wide">{topItem.label}</div>
+              <div className="text-xs text-slate-500 mt-1">Most collected material in the selected window</div>
+            </div>
+
+            <div className="mt-4 flex items-end justify-between">
+              <div>
+                <div className="text-3xl font-bold text-slate-800 leading-none">{topItem.count.toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-1">total items</div>
+              </div>
+              <Tag className="bg-amber-50 border-amber-200 text-amber-700">Rank #1</Tag>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} lg={16} className="flex">
           <Card
             className="rounded-xl border border-slate-100 shadow-sm h-full w-full"
             styles={{ body: { padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' } }}
+            loading={overviewLoading}
           >
             <div className="rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 p-4 h-full flex flex-col">
               <div className="flex justify-between items-center mb-4">
@@ -295,19 +318,22 @@ const Dashboard = () => {
             </div>
           </Card>
         </Col>
+      </Row>
 
-        <Col xs={24} lg={8} className="flex">
+      <Row gutter={[24, 24]}>
+        <Col xs={24} lg={10} className="flex">
           <Card
             className="rounded-xl border border-slate-100 shadow-sm h-full w-full"
             styles={{ body: { padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' } }}
+            loading={analyticsLoading}
           >
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">RECYCLING BY MATERIAL</span>
-              <Tag className="bg-slate-50 border-slate-200 text-slate-600">Last 7 Days</Tag>
+              <Tag className="bg-slate-50 border-slate-200 text-slate-600">Last {dateWindow} Days</Tag>
             </div>
 
             <div className="flex-1 flex flex-col items-center gap-4">
-              <div className="relative w-44 h-44 rounded-full" style={{ background: materialChartData.conic }}>
+              <div className="relative w-52 h-52 rounded-full" style={{ background: materialChartData.conic }}>
                 <div className="absolute inset-6 rounded-full bg-white flex flex-col items-center justify-center border border-slate-100">
                   <div className="text-[11px] text-slate-400 uppercase tracking-wide">Total</div>
                   <div className="text-2xl font-semibold text-slate-800">{Number(totalMaterialItems).toLocaleString()}</div>
@@ -334,32 +360,42 @@ const Dashboard = () => {
           </Card>
         </Col>
 
-        <Col xs={24} lg={8} className="flex">
-          <Card
-            className="rounded-xl border border-slate-100 shadow-sm h-full w-full"
-            styles={{ body: { padding: '24px', height: '100%', display: 'flex', flexDirection: 'column' } }}
-          >
+        <Col xs={24} lg={14}>
+          <Card loading={analyticsLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
-              <span className="text-lg text-slate-800 tracking-wide">POINTS TREND</span>
-              <Tag className="bg-green-50 border-green-200 text-green-700">Recent</Tag>
+              <span className="text-lg text-slate-800 tracking-wide">ITEMIZED BREAKDOWN</span>
+              <Tag className="bg-green-50 border-green-200 text-green-700">Collected</Tag>
             </div>
 
-            <div className="h-44 flex items-end justify-between gap-3 border-b border-slate-100 pb-3 mt-auto">
-              {pointsTrend.length === 0 ? (
-                <div className="text-sm text-slate-400">No points trend data yet.</div>
-              ) : (
-                pointsTrend.map((row) => (
-                  <div key={row.id} className="flex-1 flex flex-col items-center justify-end gap-2">
-                    <div className="text-[11px] text-slate-500">{row.points}</div>
-                    <div
-                      className="w-full max-w-10 rounded-t-md bg-green-500/80"
-                      style={{ height: `${row.height}px` }}
-                    />
-                    <div className="text-[10px] text-slate-400">{row.label}</div>
-                  </div>
-                ))
-              )}
-            </div>
+            <Table
+              rowKey="type"
+              columns={[
+                {
+                  title: 'Material Type',
+                  dataIndex: 'label',
+                  key: 'label',
+                  render: (value) => <span className="font-semibold text-slate-700">{value}</span>,
+                },
+                {
+                  title: 'Total Count',
+                  dataIndex: 'count',
+                  key: 'count',
+                  align: 'right',
+                  render: (value) => Number(value || 0).toLocaleString(),
+                },
+                {
+                  title: '% of Total',
+                  dataIndex: 'percent',
+                  key: 'percent',
+                  align: 'right',
+                  render: (value) => `${Number(value || 0).toFixed(1)}%`,
+                },
+              ]}
+              dataSource={materialBreakdown}
+              pagination={false}
+              scroll={{ x: 760 }}
+              locale={{ emptyText: 'No item breakdown available' }}
+            />
           </Card>
         </Col>
       </Row>
@@ -374,7 +410,6 @@ const Dashboard = () => {
           rowKey="id"
           columns={transactionColumns}
           dataSource={recentRecycling}
-          loading={recentRecyclingLoading}
           pagination={false}
           scroll={{ x: 940 }}
           locale={{ emptyText: 'No recent recycling transactions' }}

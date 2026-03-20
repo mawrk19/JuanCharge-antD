@@ -229,7 +229,6 @@ const MainLayout = () => {
 
     const items = [
       { key: '/main/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
-      { key: '/main/recycling-analytics', icon: <RetweetOutlined />, label: 'Recycling Analytics' },
       { key: '/main/map', icon: <EnvironmentOutlined />, label: 'Map' },
       { key: '/main/users', icon: <TeamOutlined />, label: 'LGU Users' },
       { key: '/main/lgus', icon: <BankOutlined />, label: 'LGUs' },

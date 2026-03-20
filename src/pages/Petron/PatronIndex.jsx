@@ -1,15 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Table, Input, Card, Tag, Button, Popconfirm, Space, Modal, Form, Select, Tabs, message } from 'antd';
-import { SearchOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { deleteKioskUser, getKioskUsers, updateKioskUser } from './patron.api';
-
-const roleLabelById = {
-  1: 'Super Admin',
-  2: 'LGU Admin',
-  3: 'LGU Staff',
-  4: 'Kiosk User',
-};
+import { Table, Input, Card, Tag, Button, Popconfirm, Space, Tabs, message } from 'antd';
+import { SearchOutlined, DeleteOutlined } from '@ant-design/icons';
+import { deleteKioskUser, getKioskUsers } from './patron.api';
 
 const LEADERBOARD_REFRESH_DAYS = 14;
 const LEADERBOARD_REWARD_DAYS = 21;
@@ -33,6 +26,35 @@ const cycleStartFromDays = (days, step) => {
 const toNumber = (value) => {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const maskLastName = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '-';
+  return '*'.repeat(Math.max(3, text.length));
+};
+
+const maskPhoneNumber = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '-';
+
+  const digits = text.replace(/\D/g, '');
+  if (!digits) return '-';
+
+  const visible = digits.slice(-4);
+  const maskedPrefix = '*'.repeat(Math.max(0, digits.length - 4));
+  return `${maskedPrefix}${visible}`;
+};
+
+const maskEmail = (value) => {
+  const text = String(value || '').trim();
+  if (!text) return '-';
+
+  const [localPart, domain = ''] = text.split('@');
+  if (!localPart || !domain) return '***';
+
+  const visibleLocal = localPart.slice(0, Math.min(2, localPart.length));
+  return `${visibleLocal}${'*'.repeat(Math.max(3, localPart.length - visibleLocal.length))}@${domain}`;
 };
 
 const mapSeasonBaseline = (rows) => {
@@ -124,13 +146,10 @@ const parseKioskUsersPayload = (payload, fallbackPage, fallbackPerPage) => {
 const PatronIndex = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('directory');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedPatron, setSelectedPatron] = useState(null);
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 5,
   });
-  const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
   const [seasonState, setSeasonState] = useState(() => readLeaderboardState());
@@ -144,10 +163,6 @@ const PatronIndex = () => {
   const { data: leaderboardData, isLoading: isLeaderboardLoading } = useQuery({
     queryKey: ['kiosk-users-leaderboard'],
     queryFn: () => getKioskUsers({ page: 1, perPage: 1000 }),
-  });
-
-  const updateKioskUserMutation = useMutation({
-    mutationFn: ({ id, payload }) => updateKioskUser(id, payload),
   });
 
   const deleteKioskUserMutation = useMutation({
@@ -191,19 +206,6 @@ const PatronIndex = () => {
     await queryClient.invalidateQueries({ queryKey: ['kiosk-users'] });
   };
 
-  const handleEdit = (record) => {
-    setSelectedPatron(record);
-    form.setFieldsValue({
-      first_name: record.first_name || '',
-      last_name: record.last_name || '',
-      email: record.email || '',
-      phone_number: record.phone_number || '',
-      status: record.status || 'active',
-      role_id: record.role_id,
-    });
-    setIsEditModalOpen(true);
-  };
-
   const handleDelete = async (id) => {
     try {
       await deleteKioskUserMutation.mutateAsync(id);
@@ -215,60 +217,30 @@ const PatronIndex = () => {
     }
   };
 
-  const handleEditSave = async () => {
-    if (!selectedPatron?.id) {
-      return;
-    }
-
-    try {
-      const values = await form.validateFields();
-      await updateKioskUserMutation.mutateAsync({ id: selectedPatron.id, payload: values });
-      message.success('Patron updated successfully.');
-      setIsEditModalOpen(false);
-      setSelectedPatron(null);
-      form.resetFields();
-      await refreshList();
-    } catch (error) {
-      if (error?.errorFields) {
-        return;
-      }
-
-      console.error(error);
-      message.error('Failed to update patron.');
-    }
-  };
-
-  const handleEditCancel = () => {
-    setIsEditModalOpen(false);
-    setSelectedPatron(null);
-    form.resetFields();
-  };
-
   const columns = [
     {
       title: 'NAME',
       dataIndex: 'name',
       key: 'name',
-      render: (name) => <span className="font-semibold text-green-700">{name || '-'}</span>,
+      render: (_, record) => {
+        const firstName = String(record.first_name || '').trim();
+        const lastNameMasked = maskLastName(record.last_name);
+        const fallbackName = String(record.name || '').trim();
+        const displayName = firstName || record.last_name ? `${firstName} ${lastNameMasked}`.trim() : fallbackName || '-';
+        return <span className="font-semibold text-green-700">{displayName}</span>;
+      },
     },
     {
       title: 'EMAIL',
       dataIndex: 'email',
       key: 'email',
-      render: (value) => value || <span className="text-gray-400">-</span>,
+      render: (value) => maskEmail(value),
     },
     {
       title: 'PHONE',
       dataIndex: 'phone_number',
       key: 'phone_number',
-      render: (value) => value || <span className="text-gray-400">-</span>,
-    },
-    {
-      title: 'ROLE',
-      dataIndex: 'role_id',
-      key: 'role_id',
-      align: 'center',
-      render: (roleId) => roleLabelById[roleId] || `Role #${roleId}`,
+      render: (value) => maskPhoneNumber(value),
     },
     {
       title: 'POINTS BALANCE',
@@ -305,17 +277,13 @@ const PatronIndex = () => {
       render: (value) => formatDateTime(value),
     },
     {
-      title: 'ACTIONS',
+      title: <span className="whitespace-nowrap">ACTIONS</span>,
       key: 'actions',
       fixed: 'right',
       width: 110,
+      align: 'center',
       render: (_, record) => (
         <Space>
-          <Button
-            type="text"
-            icon={<EditOutlined className="text-blue-500" />}
-            onClick={() => handleEdit(record)}
-          />
           <Popconfirm
             title="Delete Patron"
             description="Are you sure you want to delete this patron?"
@@ -439,8 +407,10 @@ const PatronIndex = () => {
       key: 'patron',
       render: (_, record) => (
         <div>
-          <div className="font-semibold text-slate-700">{record.name || `${record.first_name || ''} ${record.last_name || ''}`.trim() || '-'}</div>
-          <div className="text-xs text-slate-500">{record.email || '-'}</div>
+          <div className="font-semibold text-slate-700">
+            {`${record.first_name || ''} ${maskLastName(record.last_name)}`.trim() || record.name || '-'}
+          </div>
+          <div className="text-xs text-slate-500">{maskEmail(record.email)}</div>
         </div>
       ),
     },
@@ -549,71 +519,6 @@ const PatronIndex = () => {
   return (
     <div className="p-4 sm:p-6">
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
-
-      <Modal
-        title="Edit Patron"
-        open={isEditModalOpen}
-        onOk={handleEditSave}
-        onCancel={handleEditCancel}
-        confirmLoading={updateKioskUserMutation.isPending}
-        okText="Save"
-      >
-        <Form form={form} layout="vertical">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Form.Item
-              name="first_name"
-              label="First Name"
-              rules={[{ required: true, message: 'Please input first name.' }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="last_name"
-              label="Last Name"
-              rules={[{ required: true, message: 'Please input last name.' }]}
-            >
-              <Input />
-            </Form.Item>
-          </div>
-
-          <Form.Item
-            name="email"
-            label="Email"
-            rules={[
-              { required: true, message: 'Please input email.' },
-              { type: 'email', message: 'Please enter a valid email.' },
-            ]}
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item name="phone_number" label="Phone Number">
-            <Input />
-          </Form.Item>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Form.Item name="role_id" label="Role" rules={[{ required: true, message: 'Please select role.' }]}>
-              <Select
-                options={[
-                  { value: 1, label: 'Super Admin' },
-                  { value: 2, label: 'LGU Admin' },
-                  { value: 3, label: 'LGU Staff' },
-                  { value: 4, label: 'Kiosk User' },
-                ]}
-              />
-            </Form.Item>
-
-            <Form.Item name="status" label="Status" rules={[{ required: true, message: 'Please select status.' }]}>
-              <Select
-                options={[
-                  { value: 'active', label: 'Active' },
-                  { value: 'inactive', label: 'Inactive' },
-                ]}
-              />
-            </Form.Item>
-          </div>
-        </Form>
-      </Modal>
     </div>
   );
 };

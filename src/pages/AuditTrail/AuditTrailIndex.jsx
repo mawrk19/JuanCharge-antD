@@ -1,42 +1,82 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, DatePicker, Input, Select, Space, Table, Tag, Typography } from 'antd';
+import { Card, DatePicker, Input, Select, Space, Table, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getAuditTrails } from './auditTrail.api';
+import { USER_KEY } from '../../services/authStorage';
+
+
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+
+const getCurrentUserName = () => {
+  try{
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    const user = JSON.parse(raw);
+    return user.name || user.username || null;
+  }catch {
+    return null;
+  }
+  };
+
+const getActorDisplayName = (record) => {
+  const directName = record.actor_name || record.actor?.name || record.user?.name || 'System';
+  if (directName && directName !== 'System') return directName;
+
+  const isSuccessfulLogin =
+    String(record.http_method || '').toUpperCase() === 'POST' &&
+    String(record.route_path || '').toLowerCase().includes('/auth/login');
+    Number(record.status_code) >= 200 &&
+    Number(record.response_code) < 300;
+
+  if (isSuccessfulLogin) {
+    return getCurrentUserName() || 'Unknown User';
+  }
+  return 'System';
+};
+
+const getResourceLabel = (routePath = '') => {
+  const path = String(routePath).toLowerCase();
+
+  if (path.includes('/kiosk')) return 'Kiosk';
+  if (path.includes('/lgu-users')) return 'lgu user';
+  if (path.includes('/lgu')) return 'lgu';
+  if (path.includes('/patron') || path.includes('/petron')) return 'patron';
+  if (path.includes('/auth/login')) return 'login';
+  if (path.includes('auth')) return 'account';
+
+  return 'record';
+};
+
+const getActionVerb = (method = '', routePath = '') => {
+  const m = String(method).toUpperCase();
+  const path = String(routePath).toLowerCase();
+  
+  if (path.includes('/auth/login')) return 'logged in';
+
+  if (m === 'POST') return 'added';
+  if (m === 'PUT' || m === 'PATCH') return 'updated';
+  if (m === 'DELETE') return 'deleted';
+  
+  return 'changed';
+};
+const buildActivityText = (record) => {
+  const actor = getActorDisplayName(record);
+  const verb = getActionVerb(record.http_method, record.route_path);
+  const resource = getResourceLabel(record.route_path);
+
+  if (verb === 'logged in') return actor + ' logged in';
+  return actor + ' ' + verb + ' an ' + resource;
+};
 
 const formatDate = (value) => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString();
-};
-
-const methodColor = (method) => {
-  switch (String(method || '').toUpperCase()) {
-    case 'POST':
-      return 'blue';
-    case 'PUT':
-      return 'gold';
-    case 'PATCH':
-      return 'purple';
-    case 'DELETE':
-      return 'red';
-    default:
-      return 'default';
-  }
-};
-
-const statusColor = (status) => {
-  const code = Number(status || 0);
-  if (code >= 200 && code < 300) return 'green';
-  if (code >= 300 && code < 400) return 'blue';
-  if (code >= 400 && code < 500) return 'orange';
-  if (code >= 500) return 'red';
-  return 'default';
 };
 
 const AuditTrailIndex = () => {
@@ -71,6 +111,7 @@ const AuditTrailIndex = () => {
     };
   }, [response, filters, rows.length]);
 
+
   const columns = [
     {
       title: 'When',
@@ -84,37 +125,15 @@ const AuditTrailIndex = () => {
       key: 'actor',
       render: (_, record) => (
         <div>
-          <div className="font-medium text-slate-700">{record.actor_name || record.actor_user_id || 'System'}</div>
+          <div className="font-medium text-slate-700">{getActorDisplayName(record)}</div>
           <div className="text-xs text-slate-500">{record.actor_role || '-'}</div>
         </div>
       ),
     },
     {
-      title: 'Method',
-      dataIndex: 'http_method',
-      key: 'http_method',
-      width: 100,
-      render: (value) => <Tag color={methodColor(value)}>{String(value || '-').toUpperCase()}</Tag>,
-    },
-    {
-      title: 'Path',
-      dataIndex: 'route_path',
-      key: 'route_path',
-      render: (value) => <span className="text-slate-700">{value || '-'}</span>,
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status_code',
-      key: 'status_code',
-      width: 100,
-      render: (value) => <Tag color={statusColor(value)}>{value || '-'}</Tag>,
-    },
-    {
-      title: 'IP',
-      dataIndex: 'ip_address',
-      key: 'ip_address',
-      width: 130,
-      render: (value) => <span className="text-xs text-slate-500">{value || '-'}</span>,
+      title: 'Activity',
+      key: 'activity',
+      render: (_, record) => <span className="text-slate-700">{buildActivityText(record)}</span>,
     },
   ];
 
@@ -183,7 +202,7 @@ const AuditTrailIndex = () => {
                 setFilters((prev) => ({ ...prev, page, per_page: pageSize }));
               },
             }}
-            scroll={{ x: 950 }}
+            scroll={{ x: 700 }}
           />
         </Space>
       </Card>

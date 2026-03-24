@@ -276,31 +276,35 @@ const PatronIndex = () => {
       key: 'created_at',
       render: (value) => formatDateTime(value),
     },
-    {
-      title: <span className="whitespace-nowrap">ACTIONS</span>,
-      key: 'actions',
-      fixed: 'right',
-      width: 110,
-      align: 'center',
-      render: (_, record) => (
-        <Space>
-          <Popconfirm
-            title="Delete Patron"
-            description="Are you sure you want to delete this patron?"
-            okText="Delete"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true }}
-            onConfirm={() => handleDelete(record.id)}
-          >
-            <Button
-              type="text"
-              icon={<DeleteOutlined className="text-red-500" />}
-              loading={deleteKioskUserMutation.isPending}
-            />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    // {
+    //   title: 'ACTIONS',
+    //   key: 'actions',
+    //   fixed: 'right',
+    //   width: 110,
+    //   render: (_, record) => (
+    //     <Space>
+    //       <Button
+    //         type="text"
+    //         icon={<EditOutlined className="text-blue-500" />}
+    //         onClick={() => handleEdit(record)}
+    //       />
+    //       <Popconfirm
+    //         title="Delete Patron"
+    //         description="Are you sure you want to delete this patron?"
+    //         okText="Delete"
+    //         cancelText="Cancel"
+    //         okButtonProps={{ danger: true }}
+    //         onConfirm={() => handleDelete(record.id)}
+    //       >
+    //         <Button
+    //           type="text"
+    //           icon={<DeleteOutlined className="text-red-500" />}
+    //           loading={deleteKioskUserMutation.isPending}
+    //         />
+    //       </Popconfirm>
+    //     </Space>
+    //   ),
+    // },
   ];
 
   const tablePagination = {
@@ -312,7 +316,13 @@ const PatronIndex = () => {
     showTotal: (total) => `Total ${total} patrons`,
   };
 
-  const leaderboardRows = useMemo(() => {
+  // Leaderboard pagination state
+  const [leaderboardPagination, setLeaderboardPagination] = useState({
+    current: 1,
+    pageSize: 10,
+  });
+
+  const leaderboardRowsFull = useMemo(() => {
     const now = new Date();
     const days = diffDaysFromAnchor(now);
     const currentSeason = Math.floor(days / LEADERBOARD_REFRESH_DAYS);
@@ -320,6 +330,13 @@ const PatronIndex = () => {
     const baseline = seasonState.baselines?.[currentSeason] || mapSeasonBaseline(sourceRows);
     return mapSeasonRows(sourceRows, baseline);
   }, [leaderboardParsed.rows, seasonState.baselines]);
+
+  const leaderboardRows = useMemo(() => {
+    const { current, pageSize } = leaderboardPagination;
+    const start = (current - 1) * pageSize;
+    const end = start + pageSize;
+    return leaderboardRowsFull.slice(start, end);
+  }, [leaderboardRowsFull, leaderboardPagination]);
 
   useEffect(() => {
     if (!leaderboardParsed.rows.length) return;
@@ -506,7 +523,16 @@ const PatronIndex = () => {
               dataSource={leaderboardRows}
               loading={isLeaderboardLoading}
               rowKey="id"
-              pagination={{ pageSize: 10, showSizeChanger: true }}
+              pagination={{
+                current: leaderboardPagination.current,
+                pageSize: leaderboardPagination.pageSize,
+                total: leaderboardRowsFull.length,
+                showSizeChanger: true,
+                pageSizeOptions: ['5', '10', '20', '50', '100'],
+                onChange: (page, pageSize) => {
+                  setLeaderboardPagination({ current: page, pageSize });
+                },
+              }}
               scroll={{ x: 860 }}
               locale={{ emptyText: 'No leaderboard data yet.' }}
             />

@@ -90,17 +90,43 @@ const AuditTrailIndex = () => {
     page: 1,
   });
 
+  const routeSearchTerm = String(filters.route_path || '').trim().toLowerCase();
+
   const { data: response, isLoading } = useQuery({
     queryKey: ['audit-trails', filters],
-    queryFn: () => getAuditTrails(filters),
+    queryFn: () =>
+      getAuditTrails({
+        ...filters,
+        route_path: filters.route_path?.trim() || undefined,
+        actor_user_id: filters.actor_user_id || undefined,
+      }),
     select: (res) => res.data?.data || res.data || {},
   });
 
-  const rows = useMemo(() => {
+  const sourceRows = useMemo(() => {
     if (Array.isArray(response)) return response;
     if (Array.isArray(response?.data)) return response.data;
     return [];
   }, [response]);
+
+  const rows = useMemo(() => {
+    if (!routeSearchTerm) return sourceRows;
+
+    return sourceRows.filter((item) => {
+      const searchableFields = [
+        item.route_path,
+        item.actor_name,
+        item.actor_user_id,
+        item.http_method,
+        item.status_code,
+        item.ip_address,
+      ];
+
+      return searchableFields.some((value) =>
+        String(value || '').toLowerCase().includes(routeSearchTerm),
+      );
+    });
+  }, [sourceRows, routeSearchTerm]);
 
   const paginationMeta = useMemo(() => {
     if (response?.meta) return response.meta;

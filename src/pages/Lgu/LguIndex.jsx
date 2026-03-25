@@ -27,13 +27,11 @@ import {
   deleteLgu,
   getCollectionNotifications,
   getCollectionSchedules,
-  getLguSystemConfig,
   getLgus,
   markCollectionNotificationRead,
   notifyCollectionSchedule,
   updateCollectionSchedule,
   updateLgu,
-  upsertLguSystemConfig,
 } from './lgu.api';
 import { getStoredRole, USER_KEY } from '../../services/authStorage';
 import LguModal from './LguModal';
@@ -68,11 +66,6 @@ const LguIndex = () => {
   const [selectedLgu, setSelectedLgu] = useState(null);
   const [activeTab, setActiveTab] = useState('directory');
   const [selectedConfigLguId, setSelectedConfigLguId] = useState(undefined);
-  const [configDraft, setConfigDraft] = useState({
-    points_per_bottle: 0,
-    points_per_tin_can: 0,
-    points_per_aluminum_can: 0,
-  });
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState(null);
   const [scheduleForm] = Form.useForm();
@@ -103,12 +96,6 @@ const LguIndex = () => {
     return null;
   }, [selectedConfigLguId, currentUserLguId, isSuperAdmin, data]);
 
-  const resolvedConfigLguName = useMemo(() => {
-    if (!resolvedConfigLguId) return 'No LGU Selected';
-    const scopedLgu = data.find((item) => item.id === resolvedConfigLguId);
-    return scopedLgu?.name || 'Selected LGU';
-  }, [data, resolvedConfigLguId]);
-
   const scopedParams = resolvedConfigLguId ? { lgu_id: resolvedConfigLguId } : {};
 
   useEffect(() => {
@@ -122,24 +109,6 @@ const LguIndex = () => {
   const deleteLguMutation = useMutation({ mutationFn: deleteLgu });
   const submitLoading = createLguMutation.isPending || updateLguMutation.isPending;
 
-  const { data: systemConfig, isLoading: configLoading } = useQuery({
-    queryKey: ['lgu-system-config', selectedConfigLguId || 'self'],
-    queryFn: () => getLguSystemConfig(scopedParams),
-    select: (res) => res.data?.data || res.data || {},
-  });
-
-  useEffect(() => {
-    if (!systemConfig) {
-      return;
-    }
-
-    setConfigDraft({
-      points_per_bottle: Number(systemConfig?.points_per_bottle ?? systemConfig?.minutes_per_bottle ?? 0),
-      points_per_tin_can: Number(systemConfig?.points_per_tin_can ?? systemConfig?.minutes_per_kg ?? 0),
-      points_per_aluminum_can: Number(systemConfig?.points_per_aluminum_can ?? systemConfig?.points_per_kg ?? 0),
-    });
-  }, [systemConfig]);
-
   const { data: schedules = [], isLoading: schedulesLoading } = useQuery({
     queryKey: ['collection-schedules', selectedConfigLguId || 'self'],
     queryFn: () => getCollectionSchedules(scopedParams),
@@ -150,10 +119,6 @@ const LguIndex = () => {
     queryKey: ['collection-notifications', selectedConfigLguId || 'self'],
     queryFn: () => getCollectionNotifications(scopedParams),
     select: (res) => (Array.isArray(res.data) ? res.data : res.data?.data || []),
-  });
-
-  const saveSystemConfigMutation = useMutation({
-    mutationFn: (payload) => upsertLguSystemConfig(payload, scopedParams),
   });
 
   const createScheduleMutation = useMutation({
@@ -237,29 +202,6 @@ const LguIndex = () => {
       console.error(err);
       message.error(selectedLgu?.id ? 'Failed to update LGU' : 'Failed to create LGU');
       throw err;
-    }
-  };
-
-  const handleSaveSystemConfig = async () => {
-    if (!resolvedConfigLguId) {
-      message.error('No LGU selected. Please select an LGU first.');
-      return;
-    }
-
-    try {
-      await saveSystemConfigMutation.mutateAsync({
-        ...configDraft,
-        // Backward-compatible keys in case backend still reads legacy config fields.
-        minutes_per_bottle: configDraft.points_per_bottle,
-        minutes_per_kg: configDraft.points_per_tin_can,
-        points_per_kg: configDraft.points_per_aluminum_can,
-        lgu_id: resolvedConfigLguId,
-      });
-      message.success('LGU system configuration saved successfully.');
-      await queryClient.invalidateQueries({ queryKey: ['lgu-system-config'] });
-    } catch (error) {
-      console.error(error);
-      message.error('Failed to save system configuration.');
     }
   };
 
@@ -548,97 +490,6 @@ const LguIndex = () => {
             />
           </Card>
         </>
-      ),
-    },
-    {
-      key: 'config',
-      label: 'System Config',
-      children: (
-        <Card loading={configLoading}>
-          <div className="space-y-6">
-            <div className="rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-5">
-              <h2 className="text-xl font-semibold text-slate-800">Points Configuration</h2>
-              <p className="mt-1 text-sm text-slate-600">Configure item-based point conversion for kiosk transactions.</p>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">LGU Scope</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-700">{resolvedConfigLguName}</div>
-                </div>
-                <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-                  <div className="text-xs uppercase tracking-wide text-slate-400">Last Updated</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-700">
-                    {systemConfig?.updated_at ? new Date(systemConfig.updated_at).toLocaleString() : 'No updates yet'}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {isSuperAdmin && (
-              <div className="max-w-sm">
-                <div className="text-sm font-medium text-slate-700 mb-2">Select LGU Scope</div>
-                <Select
-                  allowClear
-                  placeholder="Select LGU"
-                  value={selectedConfigLguId}
-                  onChange={(value) => setSelectedConfigLguId(value)}
-                  options={data.map((lgu) => ({ label: lgu.name, value: lgu.id }))}
-                />
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-                <div className="mb-2 text-sm font-medium text-slate-700">Points per Bottle</div>
-                <InputNumber
-                  className="w-full"
-                  min={0}
-                  size="large"
-                  step={0.1}
-                  addonAfter="pts"
-                  value={configDraft.points_per_bottle}
-                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_bottle: Number(value || 0) }))}
-                />
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-                <div className="mb-2 text-sm font-medium text-slate-700">Points per Tin Can</div>
-                <InputNumber
-                  className="w-full"
-                  min={0}
-                  size="large"
-                  step={0.1}
-                  addonAfter="pts"
-                  value={configDraft.points_per_tin_can}
-                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_tin_can: Number(value || 0) }))}
-                />
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
-                <div className="mb-2 text-sm font-medium text-slate-700">Points per Aluminum Can</div>
-                <InputNumber
-                  className="w-full"
-                  min={0}
-                  size="large"
-                  step={0.1}
-                  addonAfter="pts"
-                  value={configDraft.points_per_aluminum_can}
-                  onChange={(value) => setConfigDraft((prev) => ({ ...prev, points_per_aluminum_can: Number(value || 0) }))}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200 pt-4">
-              <p className="text-xs text-slate-500">Changes apply to kiosk point conversion rules for the selected LGU.</p>
-              <Button
-                type="primary"
-                size="large"
-                className="bg-green-600"
-                onClick={handleSaveSystemConfig}
-                loading={saveSystemConfigMutation.isPending}
-              >
-                Save Configuration
-              </Button>
-            </div>
-          </div>
-        </Card>
       ),
     },
     {

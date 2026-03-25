@@ -8,12 +8,6 @@ export const createLgu = (data) => api.post(endpoint('/lgus'), data);
 export const updateLgu = (id, data) => api.put(endpoint(`/lgus/${id}`), data);
 export const deleteLgu = (id) => api.delete(endpoint(`/lgus/${id}`));
 
-export const getLguSystemConfig = (params = {}) =>
-	api.get(endpoint('/system-config'), { params });
-
-export const upsertLguSystemConfig = (payload, params = {}) =>
-	api.put(endpoint('/system-config'), payload, { params });
-
 export const getCollectionSchedules = (params = {}) =>
 	api.get(endpoint('/collection-schedules'), { params });
 

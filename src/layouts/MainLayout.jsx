@@ -33,7 +33,7 @@ const MainLayout = () => {
   const [notifications, setNotifications] = useState([]); 
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const [activeSettingsSection, setActiveSettingsSection] = useState('appearance');
+  const [activeSettingsSection, setActiveSettingsSection] = useState('account');
   const [appSettings, setAppSettings] = useState(() => {
     try {
       const raw = localStorage.getItem('app_settings');
@@ -295,16 +295,6 @@ const MainLayout = () => {
       children: [
         { key: 'account', label: 'User Settings' },
         { key: 'security', label: 'Update Password' },
-      ],
-    },
-    {
-      type: 'group',
-      label: 'Application',
-      children: [
-        { key: 'appearance', label: 'Appearance' },
-        { key: 'notifications', label: 'Notifications' },
-        { key: 'defaults', label: 'Defaults' },
-        { key: 'map', label: 'Map' },
       ],
     },
   ];
@@ -689,109 +679,7 @@ const MainLayout = () => {
       );
     }
 
-    if (activeSettingsSection === 'appearance') {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-base font-semibold text-slate-800">Appearance</h3>
-            <p className="text-sm text-slate-500">Adjust how the admin workspace feels and behaves.</p>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-            <div>
-              <div className="font-medium text-slate-800">Compact Sidebar</div>
-              <div className="text-sm text-slate-500">Keep navigation in a tighter layout by default.</div>
-            </div>
-            <Switch
-              checked={appSettings.compactSidebar}
-              onChange={(checked) => updateAppSetting('compactSidebar', checked)}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (activeSettingsSection === 'notifications') {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-base font-semibold text-slate-800">Notifications</h3>
-            <p className="text-sm text-slate-500">Control in-app and email alerts.</p>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-            <div>
-              <div className="font-medium text-slate-800">In-app Notifications</div>
-              <div className="text-sm text-slate-500">Show alerts in the topbar bell icon.</div>
-            </div>
-            <Switch
-              checked={appSettings.notificationsEnabled}
-              onChange={(checked) => updateAppSetting('notificationsEnabled', checked)}
-            />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-            <div>
-              <div className="font-medium text-slate-800">Email Notifications</div>
-              <div className="text-sm text-slate-500">Receive daily summary emails.</div>
-            </div>
-            <Switch
-              checked={appSettings.emailNotifications}
-              onChange={(checked) => updateAppSetting('emailNotifications', checked)}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (activeSettingsSection === 'defaults') {
-      return (
-        <div className="space-y-6">
-          <div>
-            <h3 className="text-base font-semibold text-slate-800">Defaults</h3>
-            <p className="text-sm text-slate-500">Choose startup and refresh preferences.</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 p-4">
-            <div className="mb-2 font-medium text-slate-800">Default Landing Page</div>
-            <Select
-              className="w-full"
-              value={appSettings.defaultPage}
-              options={menuItems.map((item) => ({ label: item.label, value: item.key }))}
-              onChange={(value) => updateAppSetting('defaultPage', value)}
-            />
-          </div>
-          <div className="rounded-lg border border-slate-200 p-4">
-            <div className="mb-2 font-medium text-slate-800">Kiosk Data Refresh Interval</div>
-            <Select
-              className="w-full"
-              value={appSettings.kioskRefreshInterval}
-              options={[
-                { label: '15 seconds', value: '15' },
-                { label: '30 seconds', value: '30' },
-                { label: '60 seconds', value: '60' },
-              ]}
-              onChange={(value) => updateAppSetting('kioskRefreshInterval', value)}
-            />
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-base font-semibold text-slate-800">Map</h3>
-          <p className="text-sm text-slate-500">Set map behavior defaults.</p>
-        </div>
-        <div className="flex items-center justify-between rounded-lg border border-slate-200 p-4">
-          <div>
-            <div className="font-medium text-slate-800">Auto-detect Current Location</div>
-            <div className="text-sm text-slate-500">Use geolocation when opening map and directions.</div>
-          </div>
-          <Switch
-            checked={appSettings.mapAutoLocate}
-            onChange={(checked) => updateAppSetting('mapAutoLocate', checked)}
-          />
-        </div>
-      </div>
-    );
+    return null;
   };
 
   const notifMenu = (

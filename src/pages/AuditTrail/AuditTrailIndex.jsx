@@ -167,7 +167,7 @@ const AuditTrailIndex = () => {
     <div className="p-4 sm:p-6 space-y-4">
       <div>
         <Title level={3} className="!mb-1 text-slate-800">Audit Trail</Title>
-        <Text className="text-slate-500">Track all write actions (POST, PUT, PATCH, DELETE) across the API.</Text>
+        {/* <Text className="text-slate-500">Track all write actions (POST, PUT, PATCH, DELETE) across the API.</Text> */}
       </div>
 
       <Card>

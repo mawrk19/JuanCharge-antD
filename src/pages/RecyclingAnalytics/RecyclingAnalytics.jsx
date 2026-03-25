@@ -16,9 +16,7 @@ const normalizeMaterialKey = (value) => {
   if (raw.includes('plastic') || raw.includes('pet')) return 'plastic';
   if (raw.includes('aluminum') || raw.includes('aluminium')) return 'aluminum_cans';
   if (raw.includes('tin')) return 'tin_cans';
-  if (raw.includes('glass')) return 'glass';
-  if (raw.includes('mixed')) return 'mixed';
-  return 'other';
+  return null;
 };
 
 const MATERIAL_META = {
@@ -27,7 +25,6 @@ const MATERIAL_META = {
   tin_cans: { material: 'Tin Cans', color: '#f59e0b' },
   glass: { material: 'Glass', color: '#8b5cf6' },
   mixed: { material: 'Mixed', color: '#64748b' },
-  other: { material: 'Other', color: '#ef4444' },
 };
 
 const RecyclingAnalytics = () => {
@@ -68,10 +65,11 @@ const RecyclingAnalytics = () => {
     const map = new Map();
     breakdown.forEach((row) => {
       const key = normalizeMaterialKey(row.item_type);
+      if (!key) return;
       map.set(key, (map.get(key) || 0) + parseCount(row.total_count));
     });
 
-    const orderedKeys = ['plastic', 'aluminum_cans', 'tin_cans', 'glass', 'mixed', 'other'];
+    const orderedKeys = ['plastic', 'aluminum_cans', 'tin_cans'];
 
     return orderedKeys
       .map((key) => ({
@@ -162,8 +160,8 @@ const RecyclingAnalytics = () => {
       </div>
 
       <Row gutter={[24, 24]}>
-        <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
+        <Col xs={24} md={8} className="flex">
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full w-full" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Total Items Recycled</Text>
               <DatabaseOutlined className="text-slate-400" />
@@ -172,8 +170,8 @@ const RecyclingAnalytics = () => {
           </Card>
         </Col>
 
-        <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
+        <Col xs={24} md={8} className="flex">
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full w-full" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Top Recycled Item</Text>
               <TrophyOutlined className="text-slate-400" />
@@ -183,8 +181,8 @@ const RecyclingAnalytics = () => {
           </Card>
         </Col>
 
-        <Col xs={24} md={8}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '20px 24px' } }}>
+        <Col xs={24} md={8} className="flex">
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full w-full" styles={{ body: { padding: '20px 24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Recycling Velocity / Day</Text>
               <FireOutlined className="text-slate-400" />
@@ -196,8 +194,8 @@ const RecyclingAnalytics = () => {
       </Row>
 
       <Row gutter={[24, 24]}>
-        <Col xs={24} lg={10}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full" styles={{ body: { padding: '24px' } }}>
+        <Col xs={24} lg={10} className="flex">
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full w-full" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">Storage Distribution</span>
               <Tag className="bg-slate-50 border-slate-200 text-slate-600">{dateWindow} days</Tag>
@@ -227,8 +225,8 @@ const RecyclingAnalytics = () => {
           </Card>
         </Col>
 
-        <Col xs={24} lg={14}>
-          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
+        <Col xs={24} lg={14} className="flex">
+          <Card loading={isLoading} className="rounded-xl border border-slate-100 shadow-sm h-full w-full" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">Itemized Breakdown</span>
               <Tag className="bg-green-50 border-green-200 text-green-700">Collected</Tag>

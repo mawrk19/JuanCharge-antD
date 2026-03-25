@@ -18,18 +18,15 @@ const normalizeMaterialKey = (value) => {
   if (raw.includes('plastic') || raw.includes('pet')) return 'plastic';
   if (raw.includes('aluminum') || raw.includes('aluminium')) return 'aluminum_cans';
   if (raw.includes('tin')) return 'tin_cans';
-  if (raw.includes('glass')) return 'glass';
-  if (raw.includes('mixed')) return 'mixed';
-  return 'other';
+  return null;
 };
 
 const MATERIAL_LABELS = {
   plastic: 'PET/Plastic Bottles',
   tin_cans: 'Tin/Cans',
   aluminum_cans: 'Aluminum/Cans',
-  glass: 'Glass',
-  mixed: 'Mixed',
-  other: 'Other',
+  // glass: 'Glass',
+  // mixed: 'Mixed',
 };
 
 const MATERIAL_COLORS = {
@@ -38,7 +35,6 @@ const MATERIAL_COLORS = {
   aluminum_cans: '#f59e0b',
   glass: '#8b5cf6',
   mixed: '#ef4444',
-  other: '#64748b',
 };
 
 const Dashboard = () => {
@@ -77,6 +73,7 @@ const Dashboard = () => {
 
     breakdown.forEach((item) => {
       const key = normalizeMaterialKey(item.item_type);
+      if (!key) return;
       const count = Number(item.total_count || 0);
       map.set(key, (map.get(key) || 0) + count);
     });
@@ -93,7 +90,7 @@ const Dashboard = () => {
       .sort((a, b) => b.count - a.count)
       .map((row) => ({
         ...row,
-        color: MATERIAL_COLORS[row.type] || MATERIAL_COLORS.other,
+        color: MATERIAL_COLORS[row.type] || '#CBD5E1',
         percent: totalCount > 0 ? (row.count / totalCount) * 100 : 0,
       }));
   }, [breakdown]);
@@ -188,7 +185,7 @@ const Dashboard = () => {
   // ];
 
   const statCardProps = {
-    className: 'rounded-xl border border-slate-100 shadow-sm',
+    className: 'rounded-xl border border-slate-100 shadow-sm h-full',
     styles: { body: { padding: '20px 24px' } },
   };
 
@@ -196,7 +193,7 @@ const Dashboard = () => {
     <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <Title level={3} className="!mb-1 text-slate-800">Super Admin Dashboard</Title>
-        <Text className="text-slate-500">Overview and recycling analytics in one place.</Text>
+        {/* <Text className="text-slate-500">Overview and recycling analytics in one place.</Text> */}
       </div>
 
       <Row gutter={[24, 24]}>
@@ -263,8 +260,8 @@ const Dashboard = () => {
         </Col>
       </Row>
 
-      <Row gutter={[24, 24]}>
-        <Col xs={24} lg={8}>
+      <Row gutter={[24, 24]} className="flex-stretch">
+        <Col xs={24} lg={8} className="flex">
           <Card loading={analyticsLoading} {...statCardProps}>
             <div className="flex items-center justify-between mb-4">
               <Text className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Top Recycled Item</Text>
@@ -306,10 +303,10 @@ const Dashboard = () => {
               <div className="text-xs text-slate-500">Points in circulation</div>
 
               <div className="grid grid-cols-2 gap-3 mt-auto pt-4">
-                <div className="rounded-xl bg-white/90 border border-slate-100 px-3 py-2">
+                {/* <div className="rounded-xl bg-white/90 border border-slate-100 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-400">CO2 Saved</div>
                   <div className="text-base font-semibold text-slate-700 mt-1">{co2Saved.toFixed(2)} kg</div>
-                </div>
+                </div> */}
                 <div className="rounded-xl bg-white/90 border border-slate-100 px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-400">Recycling</div>
                   <div className="text-base font-semibold text-slate-700 mt-1">{Number(recyclingWeight).toFixed(2)} kg</div>
@@ -360,8 +357,8 @@ const Dashboard = () => {
           </Card>
         </Col>
 
-        <Col xs={24} lg={14}>
-          <Card loading={analyticsLoading} className="rounded-xl border border-slate-100 shadow-sm" styles={{ body: { padding: '24px' } }}>
+        <Col xs={24} lg={14} className="flex">
+          <Card loading={analyticsLoading} className="rounded-xl border border-slate-100 shadow-sm h-full w-full" styles={{ body: { padding: '24px' } }}>
             <div className="flex justify-between items-center mb-4">
               <span className="text-lg text-slate-800 tracking-wide">ITEMIZED BREAKDOWN</span>
               <Tag className="bg-green-50 border-green-200 text-green-700">Collected</Tag>

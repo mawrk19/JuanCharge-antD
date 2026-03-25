@@ -217,7 +217,7 @@ const LguUserIndex = () => {
       <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">LGU User Management</h1>
-          <p className="text-gray-500">Manage LGU users, roles, and permissions</p>
+          {/* <p className="text-gray-500">Manage LGU users, roles, and permissions</p> */}
         </div>
         <div className="flex w-full md:w-auto gap-2 flex-col sm:flex-row">
           <Input

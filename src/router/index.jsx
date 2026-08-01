@@ -6,6 +6,7 @@ import { hasAnyRole, isAuthenticated } from '../services/authStorage';
 import MainLayout from '../layouts/MainLayout';
 
 // Pages (Import your actual components as you build them)
+import Landing from '../pages/Landing/Landing';
 import Login from '../pages/Auth/Login';
 import ForgotPassword from '../pages/Auth/ForgotPassword';
 import ResetPassword from '../pages/Auth/ResetPassword';
@@ -55,7 +56,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 const routes = [
   {
     path: '/',
-    element: <Navigate to="/login" replace />,
+    element: <Landing />,
   },
   {
     path: '/login',
@@ -161,7 +162,7 @@ const routes = [
   },
   {
     path: '*',
-    element: <Navigate to="/login" replace />,
+    element: <Navigate to="/" replace />,
   },
 ];
 

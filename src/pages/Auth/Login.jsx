@@ -139,7 +139,12 @@ const Login = () => {
       </div>
       
       {/* Footer */}
-      <div className="absolute bottom-6 text-xs font-medium text-slate-400 z-10 w-full text-center">
+      <div className="absolute bottom-6 text-xs font-medium text-slate-400 z-10 w-full text-center space-y-2">
+        <div>
+          <Link to="/" className="font-semibold text-slate-500 hover:text-green-600 transition-colors">
+            ← Back to home
+          </Link>
+        </div>
         <span>© 2026 JuanCharge. All rights reserved.</span>
       </div>
     </div>
